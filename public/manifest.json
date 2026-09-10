@@ -1,0 +1,16 @@
+{
+  "name": "Productivity Tracker",
+  "short_name": "Tracker",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#07090F",
+  "theme_color": "#07090F",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "./favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ]
+}
