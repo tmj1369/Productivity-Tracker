@@ -50,8 +50,6 @@ class ProductivityWidgetProvider : AppWidgetProvider() {
                         .putLong(KEY_BREAK_MS, breakMs)
                         .putLong(KEY_LAST_TIMESTAMP, now)
                         .apply()
-
-                    schedulePeriodicTick(context, true)
                 }
             }
             ACTION_START_BREAK -> {
@@ -66,8 +64,6 @@ class ProductivityWidgetProvider : AppWidgetProvider() {
                         .putLong(KEY_BREAK_MS, breakMs)
                         .putLong(KEY_LAST_TIMESTAMP, now)
                         .apply()
-
-                    schedulePeriodicTick(context, true)
                 }
             }
             ACTION_STOP -> {
@@ -83,8 +79,6 @@ class ProductivityWidgetProvider : AppWidgetProvider() {
                     .putLong(KEY_BREAK_MS, breakMs)
                     .putLong(KEY_LAST_TIMESTAMP, now)
                     .apply()
-
-                schedulePeriodicTick(context, false)
             }
             ACTION_RESET -> {
                 currentMode = "IDLE"
@@ -94,16 +88,6 @@ class ProductivityWidgetProvider : AppWidgetProvider() {
                     .putLong(KEY_BREAK_MS, 0L)
                     .putLong(KEY_LAST_TIMESTAMP, now)
                     .apply()
-
-                schedulePeriodicTick(context, false)
-            }
-            ACTION_TICK -> {
-                // Periodic alarm tick to refresh percentages and ratio while session is active
-                if (currentMode == "WORK" || currentMode == "BREAK") {
-                    schedulePeriodicTick(context, true)
-                } else {
-                    schedulePeriodicTick(context, false)
-                }
             }
         }
 
@@ -114,11 +98,38 @@ class ProductivityWidgetProvider : AppWidgetProvider() {
         for (id in appWidgetIds) {
             updateAppWidget(context, appWidgetManager, id)
         }
+
+        // Schedule next update based on active mode and whether 1 minute has elapsed
+        val latestMode = prefs.getString(KEY_MODE, "IDLE") ?: "IDLE"
+        val latestWork = prefs.getLong(KEY_WORK_MS, 0L)
+        val latestBreak = prefs.getLong(KEY_BREAK_MS, 0L)
+        val latestTs = prefs.getLong(KEY_LAST_TIMESTAMP, now)
+
+        var activeElapsed = 0L
+        if (latestMode == "WORK") {
+            activeElapsed = latestWork + (System.currentTimeMillis() - latestTs).coerceAtLeast(0L)
+        } else if (latestMode == "BREAK") {
+            activeElapsed = latestBreak + (System.currentTimeMillis() - latestTs).coerceAtLeast(0L)
+        }
+
+        if (latestMode == "WORK" || latestMode == "BREAK") {
+            val delayMs = if (activeElapsed < ONE_MINUTE_MS) {
+                // In first minute: schedule alarm at the exact 1-minute mark to stop showing seconds
+                (ONE_MINUTE_MS - activeElapsed).coerceAtLeast(1000L)
+            } else {
+                // After 1 minute: schedule next tick on the minute boundary (e.g. 1m -> 2m)
+                val msIntoMinute = activeElapsed % ONE_MINUTE_MS
+                (ONE_MINUTE_MS - msIntoMinute).coerceAtLeast(1000L)
+            }
+            scheduleNextUpdate(context, delayMs)
+        } else {
+            scheduleNextUpdate(context, 0L)
+        }
     }
 
     override fun onDisabled(context: Context) {
         super.onDisabled(context)
-        schedulePeriodicTick(context, false)
+        scheduleNextUpdate(context, 0L)
     }
 
     companion object {
@@ -133,6 +144,8 @@ class ProductivityWidgetProvider : AppWidgetProvider() {
         const val ACTION_STOP = "com.productivity.tracker.ACTION_STOP"
         const val ACTION_RESET = "com.productivity.tracker.ACTION_RESET"
         const val ACTION_TICK = "com.productivity.tracker.ACTION_TICK"
+
+        const val ONE_MINUTE_MS = 60_000L
 
         fun updateAppWidget(
             context: Context,
@@ -166,13 +179,21 @@ class ProductivityWidgetProvider : AppWidgetProvider() {
             // Real-time ticking Chronometers & static text depending on active state
             when (currentMode) {
                 "WORK" -> {
-                    // Chronometer base = SystemClock.elapsedRealtime() - currentWorkMs
-                    val chronoBase = elapsedRealtime - currentWorkMs
-                    views.setViewVisibility(R.id.widget_work_chrono, View.VISIBLE)
-                    views.setViewVisibility(R.id.widget_work_time, View.GONE)
-                    views.setChronometer(R.id.widget_work_chrono, chronoBase, null, true)
+                    if (currentWorkMs < ONE_MINUTE_MS) {
+                        // First minute: show live ticking Chronometer with seconds
+                        val chronoBase = elapsedRealtime - currentWorkMs
+                        views.setViewVisibility(R.id.widget_work_chrono, View.VISIBLE)
+                        views.setViewVisibility(R.id.widget_work_time, View.GONE)
+                        views.setChronometer(R.id.widget_work_chrono, chronoBase, null, true)
+                    } else {
+                        // A minute has passed: STOP showing seconds, show minutes only!
+                        views.setViewVisibility(R.id.widget_work_chrono, View.GONE)
+                        views.setChronometer(R.id.widget_work_chrono, 0L, null, false)
+                        views.setViewVisibility(R.id.widget_work_time, View.VISIBLE)
+                        views.setTextViewText(R.id.widget_work_time, formatDuration(currentWorkMs))
+                    }
 
-                    // Break is paused
+                    // Break is paused (show static text, no seconds if >= 1m)
                     views.setViewVisibility(R.id.widget_break_chrono, View.GONE)
                     views.setViewVisibility(R.id.widget_break_time, View.VISIBLE)
                     views.setChronometer(R.id.widget_break_chrono, 0L, null, false)
@@ -182,23 +203,31 @@ class ProductivityWidgetProvider : AppWidgetProvider() {
                     views.setTextColor(R.id.widget_status, Color.parseColor("#9AB87A"))
                 }
                 "BREAK" -> {
-                    // Work is paused
+                    // Work is paused (show static text, no seconds if >= 1m)
                     views.setViewVisibility(R.id.widget_work_chrono, View.GONE)
                     views.setViewVisibility(R.id.widget_work_time, View.VISIBLE)
                     views.setChronometer(R.id.widget_work_chrono, 0L, null, false)
                     views.setTextViewText(R.id.widget_work_time, formatDuration(workMs))
 
-                    // Break is live ticking
-                    val chronoBase = elapsedRealtime - currentBreakMs
-                    views.setViewVisibility(R.id.widget_break_chrono, View.VISIBLE)
-                    views.setViewVisibility(R.id.widget_break_time, View.GONE)
-                    views.setChronometer(R.id.widget_break_chrono, chronoBase, null, true)
+                    if (currentBreakMs < ONE_MINUTE_MS) {
+                        // First minute: show live ticking Chronometer with seconds
+                        val chronoBase = elapsedRealtime - currentBreakMs
+                        views.setViewVisibility(R.id.widget_break_chrono, View.VISIBLE)
+                        views.setViewVisibility(R.id.widget_break_time, View.GONE)
+                        views.setChronometer(R.id.widget_break_chrono, chronoBase, null, true)
+                    } else {
+                        // A minute has passed: STOP showing seconds, show minutes only!
+                        views.setViewVisibility(R.id.widget_break_chrono, View.GONE)
+                        views.setChronometer(R.id.widget_break_chrono, 0L, null, false)
+                        views.setViewVisibility(R.id.widget_break_time, View.VISIBLE)
+                        views.setTextViewText(R.id.widget_break_time, formatDuration(currentBreakMs))
+                    }
 
                     views.setTextViewText(R.id.widget_status, "● ON BREAK")
                     views.setTextColor(R.id.widget_status, Color.parseColor("#E2B068"))
                 }
                 else -> {
-                    // IDLE / STOPPED: Both Chronometers hidden, static text shown
+                    // IDLE / STOPPED: Both Chronometers hidden, static text shown (no seconds if >= 1m)
                     views.setViewVisibility(R.id.widget_work_chrono, View.GONE)
                     views.setViewVisibility(R.id.widget_work_time, View.VISIBLE)
                     views.setChronometer(R.id.widget_work_chrono, 0L, null, false)
@@ -219,6 +248,16 @@ class ProductivityWidgetProvider : AppWidgetProvider() {
             views.setTextViewText(R.id.widget_break_percent, "$breakPct%")
             views.setTextViewText(R.id.widget_total_time, "Total " + formatDuration(totalMs))
             views.setTextViewText(R.id.widget_balance_label, "Work $workPct% • Break $breakPct%")
+
+            // Minimal Dual Progress Bar
+            if (totalMs > 0) {
+                views.setViewVisibility(R.id.widget_progress_empty, View.GONE)
+                views.setViewVisibility(R.id.widget_progress_bar, View.VISIBLE)
+                views.setProgressBar(R.id.widget_progress_bar, 100, workPct, false)
+            } else {
+                views.setViewVisibility(R.id.widget_progress_empty, View.VISIBLE)
+                views.setViewVisibility(R.id.widget_progress_bar, View.GONE)
+            }
 
             // Click Intents
             views.setOnClickPendingIntent(
@@ -249,7 +288,7 @@ class ProductivityWidgetProvider : AppWidgetProvider() {
             appWidgetManager.updateAppWidget(appWidgetId, views)
         }
 
-        private fun schedulePeriodicTick(context: Context, enable: Boolean) {
+        private fun scheduleNextUpdate(context: Context, delayMs: Long) {
             val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
             val intent = Intent(context, ProductivityWidgetProvider::class.java).apply {
                 action = ACTION_TICK
@@ -261,8 +300,8 @@ class ProductivityWidgetProvider : AppWidgetProvider() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
 
-            if (enable) {
-                val triggerTime = SystemClock.elapsedRealtime() + 30_000L
+            if (delayMs > 0) {
+                val triggerTime = SystemClock.elapsedRealtime() + delayMs
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     alarmManager.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerTime, pendingIntent)
                 } else {
@@ -285,6 +324,10 @@ class ProductivityWidgetProvider : AppWidgetProvider() {
             )
         }
 
+        /**
+         * Formats duration: shows seconds ONLY until 1 minute has passed (e.g. "45s").
+         * Once 1 minute or more has passed, seconds are omitted (e.g. "1m", "25m", "1h 10m").
+         */
         private fun formatDuration(millis: Long): String {
             val totalSeconds = (millis / 1000).coerceAtLeast(0L)
             val hours = totalSeconds / 3600
@@ -292,9 +335,11 @@ class ProductivityWidgetProvider : AppWidgetProvider() {
             val seconds = totalSeconds % 60
 
             return if (hours > 0) {
-                String.format("%d:%02d:%02d", hours, minutes, seconds)
+                String.format("%dh %02dm", hours, minutes)
+            } else if (minutes > 0) {
+                String.format("%dm", minutes)
             } else {
-                String.format("%02d:%02d", minutes, seconds)
+                String.format("%02ds", seconds)
             }
         }
     }

@@ -158,6 +158,30 @@
         </LinearLayout>
     </LinearLayout>
 
+    <!-- Minimal Progress Bar -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="7dp"
+        android:layout_marginBottom="8dp">
+
+        <View
+            android:id="@+id/widget_progress_empty"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/widget_progress_bar_empty"
+            android:visibility="visible" />
+
+        <ProgressBar
+            android:id="@+id/widget_progress_bar"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:max="100"
+            android:progress="0"
+            android:progressDrawable="@drawable/widget_progress_bar"
+            android:visibility="gone" />
+    </FrameLayout>
+
     <!-- Ratio Summary -->
     <LinearLayout
         android:layout_width="match_parent"
@@ -183,7 +207,7 @@
             android:textSize="10sp" />
     </LinearLayout>
 
-    <!-- Action Controls -->
+    <!-- Action Controls (Icon Only) -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -193,80 +217,50 @@
         <LinearLayout
             android:id="@+id/btn_widget_work"
             android:layout_width="0dp"
-            android:layout_height="42dp"
+            android:layout_height="44dp"
             android:layout_weight="1"
             android:background="@drawable/btn_work_bg"
             android:gravity="center"
-            android:orientation="horizontal"
-            android:layout_marginEnd="4dp">
+            android:layout_marginEnd="6dp">
 
             <ImageView
-                android:layout_width="16dp"
-                android:layout_height="16dp"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
                 android:src="@drawable/ic_work"
                 android:contentDescription="Work" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="6dp"
-                android:text="Work"
-                android:textColor="@color/work_green"
-                android:textSize="12sp"
-                android:textStyle="bold" />
         </LinearLayout>
 
         <!-- Break Button -->
         <LinearLayout
             android:id="@+id/btn_widget_break"
             android:layout_width="0dp"
-            android:layout_height="42dp"
+            android:layout_height="44dp"
             android:layout_weight="1"
             android:background="@drawable/btn_break_bg"
             android:gravity="center"
-            android:orientation="horizontal"
-            android:layout_marginEnd="4dp">
+            android:layout_marginEnd="6dp">
 
             <ImageView
-                android:layout_width="16dp"
-                android:layout_height="16dp"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
                 android:src="@drawable/ic_break"
                 android:contentDescription="Break" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="6dp"
-                android:text="Break"
-                android:textColor="@color/break_amber"
-                android:textSize="12sp"
-                android:textStyle="bold" />
         </LinearLayout>
 
         <!-- Stop Button -->
         <LinearLayout
             android:id="@+id/btn_widget_stop"
             android:layout_width="0dp"
-            android:layout_height="42dp"
+            android:layout_height="44dp"
             android:layout_weight="1"
             android:background="@drawable/btn_stop_bg"
-            android:gravity="center"
-            android:orientation="horizontal">
+            android:gravity="center">
 
             <ImageView
-                android:layout_width="16dp"
-                android:layout_height="16dp"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
                 android:src="@drawable/ic_stop"
                 android:contentDescription="Stop" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="6dp"
-                android:text="Stop"
-                android:textColor="@color/stop_red"
-                android:textSize="12sp"
-                android:textStyle="bold" />
         </LinearLayout>
     </LinearLayout>
 
