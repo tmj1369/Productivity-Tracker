@@ -1,4 +1,4 @@
-import { SessionInterval, DaySummary } from '../types';
+import { SessionInterval, DaySummary, WeekSummary, WeekDayPoint } from '../types';
 
 export function formatDateKey(date: Date | number): string {
   const d = typeof date === 'number' ? new Date(date) : date;
@@ -48,21 +48,36 @@ export function formatDurationDetailed(millis: number): string {
   return `${seconds}s`;
 }
 
+export function formatDurationShort(millis: number): string {
+  if (millis <= 0) return '0m';
+  const totalMinutes = Math.floor(millis / 60000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours > 0 && minutes > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+  if (hours > 0) {
+    return `${hours}h`;
+  }
+  return `${minutes}m`;
+}
+
 export function formatClockTime(timestamp: number): string {
   const d = new Date(timestamp);
   return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
 /**
- * Creates seed history for past 3 days so the user has an immediate, rich
- * experience when inspecting previous daily statistics.
+ * Creates seed history for past 6 days so the user has an immediate, rich
+ * experience when inspecting both daily and weekly statistics.
  */
 export function generateSeedHistory(): SessionInterval[] {
   const intervals: SessionInterval[] = [];
   const now = new Date();
 
-  // Generate for 3 previous days
-  for (let daysAgo = 3; daysAgo >= 1; daysAgo--) {
+  // Generate for 6 previous days
+  for (let daysAgo = 6; daysAgo >= 1; daysAgo--) {
     const targetDate = new Date(now);
     targetDate.setDate(now.getDate() - daysAgo);
 
@@ -70,26 +85,17 @@ export function generateSeedHistory(): SessionInterval[] {
     const month = targetDate.getMonth();
     const day = targetDate.getDate();
 
-    // Pattern for each day:
-    // Session 1: 09:15 - 10:20 (65m Work)
-    // Break 1:   10:20 - 10:32 (12m Break)
-    // Session 2: 10:32 - 11:45 (73m Work)
-    // Break 2 (Lunch/Longest): 11:45 - 12:25 (40m Break)
-    // Session 3: 12:25 - 14:00 (95m Work)
-    // Break 3:   14:00 - 14:15 (15m Break)
-    // Session 4: 14:15 - 15:30 (75m Work)
-    // Break 4:   15:30 - 15:40 (10m Break)
-    // Session 5: 15:40 - 17:00 (80m Work)
+    // Variable schedule per day to look natural
     const schedule = [
-      { type: 'WORK' as const, startH: 9, startM: 15, durationMins: 60 + (daysAgo * 5) },
-      { type: 'BREAK' as const, startH: 10, startM: 20, durationMins: 12 },
-      { type: 'WORK' as const, startH: 10, startM: 35, durationMins: 70 },
-      { type: 'BREAK' as const, startH: 11, startM: 45, durationMins: 35 + (daysAgo * 5) }, // Longest break
-      { type: 'WORK' as const, startH: 12, startM: 25, durationMins: 90 - (daysAgo * 5) },
+      { type: 'WORK' as const, startH: 9, startM: 15, durationMins: 55 + (daysAgo * 4) },
+      { type: 'BREAK' as const, startH: 10, startM: 20, durationMins: 10 + (daysAgo % 3) * 2 },
+      { type: 'WORK' as const, startH: 10, startM: 35, durationMins: 65 + (daysAgo % 2) * 10 },
+      { type: 'BREAK' as const, startH: 11, startM: 50, durationMins: 30 + (daysAgo * 3) }, // Longest break (lunch)
+      { type: 'WORK' as const, startH: 12, startM: 30, durationMins: 80 - (daysAgo * 3) },
       { type: 'BREAK' as const, startH: 14, startM: 0, durationMins: 15 },
-      { type: 'WORK' as const, startH: 14, startM: 15, durationMins: 75 },
-      { type: 'BREAK' as const, startH: 15, startM: 30, durationMins: 10 },
-      { type: 'WORK' as const, startH: 15, startM: 45, durationMins: 65 },
+      { type: 'WORK' as const, startH: 14, startM: 20, durationMins: 70 },
+      { type: 'BREAK' as const, startH: 15, startM: 35, durationMins: 10 },
+      { type: 'WORK' as const, startH: 15, startM: 50, durationMins: 60 },
     ];
 
     schedule.forEach((item, index) => {
@@ -188,3 +194,155 @@ export function aggregateDaySummaries(
   summaries.sort((a, b) => b.dateKey.localeCompare(a.dateKey));
   return summaries;
 }
+
+/**
+ * Gets the Monday of the week for a given date (00:00:00).
+ */
+export function getMonday(d: Date | string | number): Date {
+  const date = typeof d === 'string' ? new Date(d.replace(/-/g, '/')) : new Date(d);
+  const day = date.getDay();
+  // 0 is Sunday, 1 is Monday, ..., 6 is Saturday
+  const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+  const mon = new Date(date.getFullYear(), date.getMonth(), diff, 0, 0, 0, 0);
+  return mon;
+}
+
+/**
+ * Aggregates day summaries into weekly buckets (Monday through Sunday).
+ */
+export function aggregateWeekSummaries(daySummaries: DaySummary[]): WeekSummary[] {
+  const dayMap = new Map<string, DaySummary>();
+  for (const ds of daySummaries) {
+    dayMap.set(ds.dateKey, ds);
+  }
+
+  // Find all distinct Mondays, ensuring current week's Monday is present
+  const today = new Date();
+  const todayKey = formatDateKey(today);
+  const currentMonday = getMonday(today);
+
+  const mondayTimes = new Set<number>();
+  mondayTimes.add(currentMonday.getTime());
+
+  for (const ds of daySummaries) {
+    const mon = getMonday(ds.dateKey);
+    mondayTimes.add(mon.getTime());
+  }
+
+  const sortedMondayTimes = Array.from(mondayTimes).sort((a, b) => b - a);
+  const dayLetters = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+  const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  const weekSummaries: WeekSummary[] = [];
+
+  for (const monTime of sortedMondayTimes) {
+    const mondayDate = new Date(monTime);
+    const sundayDate = new Date(monTime);
+    sundayDate.setDate(sundayDate.getDate() + 6);
+
+    const weekDays: WeekDayPoint[] = [];
+    let totalWorkMs = 0;
+    let totalBreakMs = 0;
+    let totalBreaks = 0;
+    let longestBreakMs = 0;
+    let activeDaysCount = 0;
+    let bestDay: { dayName: string; workMs: number; dateKey: string } | undefined;
+
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(mondayDate);
+      d.setDate(d.getDate() + i);
+      const dKey = formatDateKey(d);
+      const isToday = dKey === todayKey;
+      const shortDate = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+
+      const existingDay = dayMap.get(dKey);
+      if (existingDay && existingDay.totalMs > 0) {
+        totalWorkMs += existingDay.totalWorkMs;
+        totalBreakMs += existingDay.totalBreakMs;
+        totalBreaks += existingDay.breakCount;
+        if (existingDay.longestBreakMs > longestBreakMs) {
+          longestBreakMs = existingDay.longestBreakMs;
+        }
+        activeDaysCount++;
+
+        if (!bestDay || existingDay.totalWorkMs > bestDay.workMs) {
+          bestDay = {
+            dayName: dayNames[i],
+            workMs: existingDay.totalWorkMs,
+            dateKey: dKey,
+          };
+        }
+
+        weekDays.push({
+          dayName: dayNames[i],
+          dayLetter: dayLetters[i],
+          shortDate,
+          dateKey: dKey,
+          totalWorkMs: existingDay.totalWorkMs,
+          totalBreakMs: existingDay.totalBreakMs,
+          totalMs: existingDay.totalMs,
+          productivityScore: existingDay.productivityScore,
+          breakCount: existingDay.breakCount,
+          longestBreakMs: existingDay.longestBreakMs,
+          isToday,
+          hasData: true,
+        });
+      } else {
+        weekDays.push({
+          dayName: dayNames[i],
+          dayLetter: dayLetters[i],
+          shortDate,
+          dateKey: dKey,
+          totalWorkMs: 0,
+          totalBreakMs: 0,
+          totalMs: 0,
+          productivityScore: 0,
+          breakCount: 0,
+          longestBreakMs: 0,
+          isToday,
+          hasData: false,
+        });
+      }
+    }
+
+    const totalMs = totalWorkMs + totalBreakMs;
+    const productivityScore = totalMs > 0 ? Math.round((totalWorkMs / totalMs) * 100) : 0;
+    const avgDailyWorkMs = activeDaysCount > 0 ? Math.round(totalWorkMs / activeDaysCount) : 0;
+
+    // Determine week label
+    const isCurrentWeek = monTime === currentMonday.getTime();
+    const lastWeekMonday = new Date(currentMonday);
+    lastWeekMonday.setDate(lastWeekMonday.getDate() - 7);
+    const isLastWeek = monTime === lastWeekMonday.getTime();
+
+    let weekLabel = 'Week of ' + mondayDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    if (isCurrentWeek) {
+      weekLabel = 'This Week';
+    } else if (isLastWeek) {
+      weekLabel = 'Last Week';
+    }
+
+    const startStr = mondayDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const endStr = sundayDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const dateRangeLabel = `${startStr} – ${endStr}`;
+
+    weekSummaries.push({
+      weekKey: formatDateKey(mondayDate),
+      weekLabel,
+      dateRangeLabel,
+      days: weekDays,
+      totalWorkMs,
+      totalBreakMs,
+      totalMs,
+      productivityScore,
+      totalBreaks,
+      longestBreakMs,
+      avgDailyWorkMs,
+      activeDaysCount,
+      bestDay,
+    });
+  }
+
+  return weekSummaries;
+}
+
