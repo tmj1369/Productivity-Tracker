@@ -164,16 +164,17 @@
         android:layout_height="7dp"
         android:layout_marginBottom="8dp">
 
-        <View
+        <ImageView
             android:id="@+id/widget_progress_empty"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:background="@drawable/widget_progress_bar_empty"
+            android:contentDescription="Empty Progress"
             android:visibility="visible" />
 
         <ProgressBar
             android:id="@+id/widget_progress_bar"
-            style="?android:attr/progressBarStyleHorizontal"
+            style="@android:style/Widget.ProgressBar.Horizontal"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:max="100"
@@ -227,6 +228,8 @@
                 android:layout_width="22dp"
                 android:layout_height="22dp"
                 android:src="@drawable/ic_work"
+                android:clickable="false"
+                android:focusable="false"
                 android:contentDescription="Work" />
         </LinearLayout>
 
@@ -244,6 +247,8 @@
                 android:layout_width="22dp"
                 android:layout_height="22dp"
                 android:src="@drawable/ic_break"
+                android:clickable="false"
+                android:focusable="false"
                 android:contentDescription="Break" />
         </LinearLayout>
 
@@ -260,6 +265,8 @@
                 android:layout_width="20dp"
                 android:layout_height="20dp"
                 android:src="@drawable/ic_stop"
+                android:clickable="false"
+                android:focusable="false"
                 android:contentDescription="Stop" />
         </LinearLayout>
     </LinearLayout>
