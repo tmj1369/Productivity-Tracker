@@ -8,6 +8,13 @@ export function formatDateKey(date: Date | number): string {
   return `${year}-${month}-${day}`;
 }
 
+export function formatDDMMYY(date: Date): string {
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = String(date.getFullYear()).slice(-2);
+  return `${day}/${month}/${year}`;
+}
+
 export function formatFriendlyDate(dateKey: string): string {
   const [year, month, day] = dateKey.split('-').map(Number);
   const date = new Date(year, month - 1, day);
@@ -25,11 +32,7 @@ export function formatFriendlyDate(dateKey: string): string {
     return 'Yesterday';
   }
 
-  return date.toLocaleDateString(undefined, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  });
+  return formatDDMMYY(date);
 }
 
 export function formatDurationDetailed(millis: number): string {
@@ -253,7 +256,7 @@ export function aggregateWeekSummaries(daySummaries: DaySummary[]): WeekSummary[
       d.setDate(d.getDate() + i);
       const dKey = formatDateKey(d);
       const isToday = dKey === todayKey;
-      const shortDate = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      const shortDate = formatDDMMYY(d);
 
       const existingDay = dayMap.get(dKey);
       if (existingDay && existingDay.totalMs > 0) {
@@ -315,15 +318,15 @@ export function aggregateWeekSummaries(daySummaries: DaySummary[]): WeekSummary[
     lastWeekMonday.setDate(lastWeekMonday.getDate() - 7);
     const isLastWeek = monTime === lastWeekMonday.getTime();
 
-    let weekLabel = 'Week of ' + mondayDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    let weekLabel = 'Week of ' + formatDDMMYY(mondayDate);
     if (isCurrentWeek) {
       weekLabel = 'This Week';
     } else if (isLastWeek) {
       weekLabel = 'Last Week';
     }
 
-    const startStr = mondayDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-    const endStr = sundayDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const startStr = formatDDMMYY(mondayDate);
+    const endStr = formatDDMMYY(sundayDate);
     const dateRangeLabel = `${startStr} – ${endStr}`;
 
     weekSummaries.push({

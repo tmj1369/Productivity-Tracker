@@ -8,24 +8,28 @@ import {
   ChevronRight, 
   Calendar,
   Layers,
-  Sparkles
+  Sparkles,
+  Trash2
 } from 'lucide-react';
 import { DaySummary, WeekSummary } from '../types';
 import { 
   formatDurationDetailed, 
   formatDurationShort, 
   formatClockTime, 
-  aggregateWeekSummaries 
+  aggregateWeekSummaries,
+  formatDDMMYY
 } from '../utils/statsHelper';
 
 interface DailyStatsViewProps {
   daySummaries: DaySummary[];
   onBackToTimer: () => void;
+  onDeleteSession: (sessionId: string) => void;
 }
 
 export const DailyStatsView: React.FC<DailyStatsViewProps> = ({
   daySummaries,
   onBackToTimer,
+  onDeleteSession,
 }) => {
   const [activeTab, setActiveTab] = useState<'DAY' | 'WEEK'>('DAY');
   const [selectedDateIndex, setSelectedDateIndex] = useState(0);
@@ -163,7 +167,7 @@ export const DailyStatsView: React.FC<DailyStatsViewProps> = ({
                 {selectedDay?.dateLabel}
               </div>
               <div className="text-[10px] text-[#717E94] font-mono">
-                {selectedDay?.dateKey}
+                {formatDDMMYY(new Date(selectedDay.dateKey))}
               </div>
             </div>
 
@@ -201,13 +205,33 @@ export const DailyStatsView: React.FC<DailyStatsViewProps> = ({
               </div>
 
               <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
-                selectedDay.productivityScore >= 75
+                selectedDay.productivityScore >= 70
                   ? 'bg-[#9AB87A]/15 text-[#9AB87A] border-[#9AB87A]/30'
-                  : selectedDay.productivityScore >= 50
+                  : selectedDay.productivityScore >= 40
                   ? 'bg-[#E2B068]/15 text-[#E2B068] border-[#E2B068]/30'
                   : 'bg-[#717E94]/15 text-[#8B98AD] border-[#717E94]/30'
               }`}>
-                {selectedDay.totalMs === 0 ? 'No Data' : selectedDay.productivityScore >= 75 ? 'High Focus' : 'Light Balance'}
+                {selectedDay.totalMs === 0
+                  ? 'No Data'
+                  : selectedDay.productivityScore >= 90
+                  ? 'Enough Da'
+                  : selectedDay.productivityScore >= 80
+                  ? 'What a Worker'
+                  : selectedDay.productivityScore >= 70
+                  ? 'Flow State'
+                  : selectedDay.productivityScore >= 60
+                  ? 'Cooking'
+                  : selectedDay.productivityScore >= 50
+                  ? 'Zen Master'
+                  : selectedDay.productivityScore >= 40
+                  ? 'Work Da'
+                  : selectedDay.productivityScore >= 30
+                  ? 'Work Means'
+                  : selectedDay.productivityScore >= 20
+                  ? 'Work you Bum'
+                  : selectedDay.productivityScore >= 10
+                  ? 'Procrastinator Max'
+                  : 'Couch Potato'}
               </span>
             </div>
 
@@ -270,52 +294,52 @@ export const DailyStatsView: React.FC<DailyStatsViewProps> = ({
             className="grid grid-cols-3 gap-2"
           >
             {/* Break Frequency */}
-            <div className="bg-[#121622] border border-[#1C2436] rounded-xl p-2.5 text-center">
-              <span className="text-[10px] uppercase tracking-wider font-semibold text-[#8B98AD] block">
+            <div className="bg-[#121622] border border-[#1C2436] rounded-xl p-2.5 flex flex-col items-center justify-between">
+              <span className="text-[10px] uppercase tracking-wider font-semibold text-[#8B98AD] text-center">
                 Breaks
               </span>
               <div className="font-mono text-lg font-bold text-[#F1F4FA] mt-0.5">
                 {selectedDay.breakCount}
               </div>
-              <span className="text-[9px] text-[#717E94] block mt-0.5">
+              <span className="text-[9px] text-[#717E94] text-center mt-0.5">
                 sessions
               </span>
             </div>
 
             {/* Longest Break */}
-            <div className="bg-[#121622] border border-[#1C2436] rounded-xl p-2.5 text-center">
-              <span className="text-[10px] uppercase tracking-wider font-semibold text-[#8B98AD] block">
-                Longest Break
+            <div className="bg-[#121622] border border-[#1C2436] rounded-xl p-2.5 flex flex-col items-center justify-between">
+              <span className="text-[10px] uppercase tracking-wider font-semibold text-[#8B98AD] text-center">
+                Longest
               </span>
               <div className="font-mono text-lg font-bold text-[#E2B068] mt-0.5">
                 {selectedDay.longestBreakMs > 0 ? formatDurationShort(selectedDay.longestBreakMs) : '0m'}
               </div>
-              <span className="text-[9px] text-[#717E94] block mt-0.5">
+              <span className="text-[9px] text-[#717E94] text-center mt-0.5">
                 max pause
               </span>
             </div>
 
             {/* Average Break Duration */}
-            <div className="bg-[#121622] border border-[#1C2436] rounded-xl p-2.5 text-center">
-              <span className="text-[10px] uppercase tracking-wider font-semibold text-[#8B98AD] block">
-                Avg Break
+            <div className="bg-[#121622] border border-[#1C2436] rounded-xl p-2.5 flex flex-col items-center justify-between">
+              <span className="text-[10px] uppercase tracking-wider font-semibold text-[#8B98AD] text-center">
+                Average
               </span>
               <div className="font-mono text-lg font-bold text-[#F1F4FA] mt-0.5">
                 {selectedDay.breakCount > 0 ? formatDurationShort(selectedDay.avgBreakMs) : '0m'}
               </div>
-              <span className="text-[9px] text-[#717E94] block mt-0.5">
+              <span className="text-[9px] text-[#717E94] text-center mt-0.5">
                 per pause
               </span>
             </div>
           </section>
 
-          {/* Clean Session Timeline */}
+          {/* Visual Session Timeline */}
           <section 
             id="card-daily-timeline"
             aria-label="Session Timeline"
             className="bg-[#121622] border border-[#1C2436] rounded-xl p-3.5"
           >
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-1.5">
                 <Layers className="w-3.5 h-3.5 text-[#8B98AD]" />
                 <span className="text-[10px] uppercase tracking-wider font-semibold text-[#8B98AD]">
@@ -324,54 +348,97 @@ export const DailyStatsView: React.FC<DailyStatsViewProps> = ({
               </div>
             </div>
 
-            {selectedDay.sessions.length === 0 ? (
+            {selectedDay.totalMs === 0 ? (
               <div className="text-center py-5 text-xs text-[#717E94]">
                 No sessions logged for this date.
               </div>
-            ) : (
-              <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
-                {selectedDay.sessions.map((session, index) => {
-                  const isWork = session.type === 'WORK';
-                  const isLongest = !isWork && session.id === longestBreakSession?.id;
+            ) : (() => {
+              // Calculate day span for chronological timeline
+              const dayStart = Math.min(...selectedDay.sessions.map(s => s.startTime));
+              const dayEnd = Math.max(...selectedDay.sessions.map(s => s.endTime));
+              const daySpan = dayEnd - dayStart;
 
-                  return (
-                    <div
-                      key={session.id || index}
-                      className={`flex items-center justify-between py-1.5 px-2.5 rounded-lg border transition-all text-xs ${
-                        isWork
-                          ? 'bg-[#141A17] border-[#9AB87A]/20 text-[#E6EBF5]'
-                          : 'bg-[#1A1815] border-[#E2B068]/20 text-[#E6EBF5]'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span 
-                          className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                            isWork ? 'bg-[#9AB87A]' : 'bg-[#E2B068]'
-                          }`} 
+              return (
+                <div className="space-y-3">
+                  {/* Chronological Timeline Bar */}
+                  <div className="relative w-full h-4 rounded-md overflow-hidden bg-[#171E2D] shadow-inner">
+                    {selectedDay.sessions.map((session, index) => {
+                      const left = ((session.startTime - dayStart) / daySpan) * 100;
+                      const width = (session.durationMs / daySpan) * 100;
+                      return (
+                        <div
+                          key={session.id || index}
+                          className={`absolute h-full ${session.type === 'WORK' ? 'bg-[#9AB87A]' : 'bg-[#E2B068]'}`}
+                          style={{ left: `${left}%`, width: `${width}%` }}
+                          title={`${session.type === 'WORK' ? 'Work' : 'Break'}: ${formatDurationShort(session.durationMs)}`}
                         />
-                        <span className="font-medium text-[11px]">
-                          {isWork ? 'Work Sprint' : 'Break'}
-                        </span>
-                        {isLongest && (
-                          <span className="text-[9px] font-semibold px-1.5 py-0.2 rounded-full bg-[#E2B068]/20 text-[#E2B068]">
-                            Longest
-                          </span>
-                        )}
-                      </div>
+                      );
+                    })}
+                  </div>
 
-                      <div className="flex items-center gap-2 font-mono text-[11px]">
-                        <span className="text-[#717E94]">
-                          {formatClockTime(session.startTime)}
-                        </span>
-                        <span className={`font-semibold ${isWork ? 'text-[#9AB87A]' : 'text-[#E2B068]'}`}>
-                          {formatDurationDetailed(session.durationMs)}
-                        </span>
+                  {/* Total Session Duration Bar */}
+                  <div className="space-y-1">
+                    <div className="w-full h-2 rounded-full overflow-hidden bg-[#171E2D]">
+                      <div 
+                        className="h-full bg-[#3B82F6] transition-all duration-300"
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                    <div className="text-center">
+                      <div className="text-base font-mono font-bold text-[#F1F4FA]">
+                        {formatDurationShort(daySpan)}
+                      </div>
+                      <div className="text-[10px] text-[#717E94] uppercase tracking-wide">
+                        Total session duration
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            )}
+                  </div>
+
+                  {/* Scrollable Session List */}
+                  <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                    {selectedDay.sessions.map((session, index) => {
+                      const isWork = session.type === 'WORK';
+                      return (
+                        <div
+                          key={session.id || index}
+                          className={`flex items-center justify-between py-1.5 px-2.5 rounded-lg border transition-all text-xs ${
+                            isWork
+                              ? 'bg-[#141A17] border-[#9AB87A]/20 text-[#E6EBF5]'
+                              : 'bg-[#1A1815] border-[#E2B068]/20 text-[#E6EBF5]'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span 
+                              className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                isWork ? 'bg-[#9AB87A]' : 'bg-[#E2B068]'
+                              }`} 
+                            />
+                            <span className="font-medium text-[11px]">
+                              {isWork ? 'Work Sprint' : 'Break'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 font-mono text-[11px]">
+                            <span className="text-[#717E94]">
+                              {formatClockTime(session.startTime)}
+                            </span>
+                            <span className={`font-semibold ${isWork ? 'text-[#9AB87A]' : 'text-[#E2B068]'}`}>
+                              {formatDurationDetailed(session.durationMs)}
+                            </span>
+                            <button
+                              onClick={() => onDeleteSession(session.id)}
+                              className="p-1 text-[#717E94] hover:text-[#E56367] transition-colors"
+                              aria-label="Delete session"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
           </section>
         </main>
       )}
@@ -455,42 +522,48 @@ export const DailyStatsView: React.FC<DailyStatsViewProps> = ({
                 {formatDurationShort(selectedWeek.totalBreakMs)}
               </div>
               <span className="text-[10px] text-[#717E94] block mt-0.5">
-                {selectedWeek.totalBreaks} breaks taken
+                {selectedWeek.activeDaysCount > 0 
+                  ? `avg ${formatDurationShort(selectedWeek.totalBreakMs / selectedWeek.activeDaysCount)}/day` 
+                  : 'no break data'}
               </span>
             </div>
 
             {/* Weekly Productivity Focus */}
-            <div className="bg-[#121622] border border-[#1C2436] rounded-xl p-3">
+            <div className="bg-[#121622] border border-[#1C2436] rounded-xl p-3 flex flex-col justify-between">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[10px] uppercase tracking-wider font-semibold text-[#8B98AD]">
                   Focus Score
                 </span>
                 <Sparkles className="w-3.5 h-3.5 text-[#9AB87A]" />
               </div>
-              <div className="font-mono text-xl font-bold text-[#F1F4FA]">
-                {selectedWeek.productivityScore}%
+              <div>
+                <div className="font-mono text-xl font-bold text-[#F1F4FA]">
+                  {selectedWeek.productivityScore}%
+                </div>
+                <span className="text-[10px] text-[#717E94] block mt-0.5">
+                  of total active time
+                </span>
               </div>
-              <span className="text-[10px] text-[#717E94] block mt-0.5">
-                of total active time
-              </span>
             </div>
 
             {/* Best Work Day or Longest Break */}
-            <div className="bg-[#121622] border border-[#1C2436] rounded-xl p-3">
+            <div className="bg-[#121622] border border-[#1C2436] rounded-xl p-3 flex flex-col justify-between">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[10px] uppercase tracking-wider font-semibold text-[#8B98AD]">
                   Top Day
                 </span>
                 <Calendar className="w-3.5 h-3.5 text-[#E2B068]" />
               </div>
-              <div className="font-mono text-base font-bold text-[#F1F4FA] truncate">
-                {selectedWeek.bestDay 
-                  ? `${selectedWeek.bestDay.dayName} (${formatDurationShort(selectedWeek.bestDay.workMs)})`
-                  : '—'}
+              <div>
+                <div className="font-mono text-base font-bold text-[#F1F4FA] truncate">
+                  {selectedWeek.bestDay 
+                    ? `${selectedWeek.bestDay.dayName} (${formatDurationShort(selectedWeek.bestDay.workMs)})`
+                    : '—'}
+                </div>
+                <span className="text-[10px] text-[#717E94] block mt-0.5">
+                  max focus day
+                </span>
               </div>
-              <span className="text-[10px] text-[#717E94] block mt-0.5">
-                max focus day
-              </span>
             </div>
           </section>
 
@@ -554,7 +627,7 @@ export const DailyStatsView: React.FC<DailyStatsViewProps> = ({
                         {day.dayName}
                       </span>
                       <span className="text-[8px] text-[#717E94] font-mono mt-0.5 block leading-none">
-                        {day.shortDate.split(' ')[1]}
+                        {day.shortDate.split('/')[0]}
                       </span>
                     </div>
                   </button>
@@ -569,46 +642,38 @@ export const DailyStatsView: React.FC<DailyStatsViewProps> = ({
             aria-label="Day by Day Breakdown"
             className="bg-[#121622] border border-[#1C2436] rounded-xl p-3.5"
           >
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-3">
               <span className="text-[10px] uppercase tracking-wider font-semibold text-[#8B98AD]">
-                Week Schedule Log
+                Week View
               </span>
               <span className="text-[10px] text-[#717E94]">
-                Tap day to view intervals
+                Tap day to view details
               </span>
             </div>
 
-            <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
+            <div className="space-y-1.5 max-h-[220px] overflow-y-auto pr-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
               {selectedWeek.days.map((day) => (
                 <button
                   key={day.dateKey}
                   type="button"
                   onClick={() => handleSelectDayFromWeek(day.dateKey)}
-                  className="w-full flex items-center justify-between py-1.5 px-2.5 rounded-lg border border-[#1C2436] bg-[#0E121B]/70 hover:bg-[#161D2B] transition-all text-xs cursor-pointer text-left"
+                  className="w-full flex items-center justify-between py-2.5 px-3.5 rounded-lg border border-[#1C2436] bg-[#0E121B]/70 hover:bg-[#161D2B] transition-all text-sm cursor-pointer text-left"
                 >
-                  <div className="flex items-center gap-2">
-                    <span className={`text-[11px] font-semibold ${day.isToday ? 'text-[#9AB87A]' : 'text-[#F1F4FA]'}`}>
+                  <div className="flex items-center gap-3">
+                    <span className={`text-sm font-semibold ${day.isToday ? 'text-[#9AB87A]' : 'text-[#F1F4FA]'}`}>
                       {day.dayName}
                     </span>
-                    <span className="text-[10px] text-[#717E94]">
+                    <span className="text-xs text-[#717E94] font-mono">
                       {day.shortDate}
                     </span>
-                    {day.isToday && (
-                      <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-[#9AB87A]/20 text-[#9AB87A]">
-                        Today
-                      </span>
-                    )}
                   </div>
 
-                  <div className="flex items-center gap-3 font-mono text-[11px]">
-                    <div className="text-[#9AB87A]">
+                  <div className="flex items-center gap-4 font-mono text-sm">
+                    <div className="text-[#9AB87A] font-medium w-14 text-right">
                       {day.totalWorkMs > 0 ? formatDurationShort(day.totalWorkMs) : '—'}
                     </div>
-                    <div className="text-[#E2B068]">
+                    <div className="text-[#E2B068] font-medium w-14 text-right">
                       {day.totalBreakMs > 0 ? formatDurationShort(day.totalBreakMs) : '—'}
-                    </div>
-                    <div className="text-[10px] text-[#717E94] w-10 text-right">
-                      {day.breakCount > 0 ? `${day.breakCount} brk` : ''}
                     </div>
                   </div>
                 </button>

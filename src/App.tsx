@@ -419,12 +419,27 @@ export default function App() {
   const workPercentage = totalTrackedMs > 0 ? Math.round((currentWorkMs / totalTrackedMs) * 100) : 0;
   const breakPercentage = totalTrackedMs > 0 ? 100 - workPercentage : 0;
 
+  // Delete session
+  const handleDeleteSession = useCallback((sessionId: string) => {
+    setTracker((prev) => {
+      const newHistory = prev.history.filter((s) => s.id !== sessionId);
+      const newState = {
+        ...prev,
+        history: newHistory,
+      };
+      saveStateToStorage(newState);
+      return newState;
+    });
+    showToast('Session deleted');
+  }, [saveStateToStorage, showToast]);
+
   return (
     <div className="min-h-screen bg-[#07090F] text-[#F1F4FA] flex items-center justify-center p-4 font-sans antialiased selection:bg-[#9AB87A]/25 selection:text-[#9AB87A]">
       {viewMode === 'STATS' ? (
         <DailyStatsView 
           daySummaries={daySummaries} 
           onBackToTimer={() => setViewMode('TIMER')} 
+          onDeleteSession={handleDeleteSession}
         />
       ) : (
         /* Minimal Widget Container */
