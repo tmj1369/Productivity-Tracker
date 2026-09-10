@@ -9,7 +9,9 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.os.Build
+import android.os.Bundle
 import android.os.SystemClock
+import android.util.SizeF
 import android.view.View
 import android.widget.RemoteViews
 
@@ -23,6 +25,16 @@ class ProductivityWidgetProvider : AppWidgetProvider() {
         for (appWidgetId in appWidgetIds) {
             updateAppWidget(context, appWidgetManager, appWidgetId)
         }
+    }
+
+    override fun onAppWidgetOptionsChanged(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetId: Int,
+        newOptions: Bundle
+    ) {
+        super.onAppWidgetOptionsChanged(context, appWidgetManager, appWidgetId, newOptions)
+        updateAppWidget(context, appWidgetManager, appWidgetId)
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -175,121 +187,164 @@ class ProductivityWidgetProvider : AppWidgetProvider() {
                 val workPct = if (totalMs > 0) ((currentWorkMs.toDouble() / totalMs) * 100).toInt() else 0
                 val breakPct = if (totalMs > 0) 100 - workPct else 0
 
-                val views = RemoteViews(context.packageName, R.layout.widget_productivity)
+                val options = appWidgetManager.getAppWidgetOptions(appWidgetId)
+                val minHeight = options?.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0) ?: 0
 
-                // Real-time ticking Chronometers & static text depending on active state
-                when (currentMode) {
-                    "WORK" -> {
-                        if (currentWorkMs < ONE_MINUTE_MS) {
-                            // First minute: show live ticking Chronometer with seconds
-                            val chronoBase = elapsedRealtime - currentWorkMs
-                            views.setViewVisibility(R.id.widget_work_chrono, View.VISIBLE)
-                            views.setViewVisibility(R.id.widget_work_time, View.GONE)
-                            views.setChronometer(R.id.widget_work_chrono, chronoBase, null, true)
-                        } else {
-                            // A minute has passed: STOP showing seconds, show minutes only!
-                            views.setViewVisibility(R.id.widget_work_chrono, View.GONE)
-                            views.setChronometer(R.id.widget_work_chrono, 0L, null, false)
-                            views.setViewVisibility(R.id.widget_work_time, View.VISIBLE)
-                            views.setTextViewText(R.id.widget_work_time, formatDuration(currentWorkMs))
-                        }
-
-                        // Break is paused (show static text, no seconds if >= 1m)
-                        views.setViewVisibility(R.id.widget_break_chrono, View.GONE)
-                        views.setViewVisibility(R.id.widget_break_time, View.VISIBLE)
-                        views.setChronometer(R.id.widget_break_chrono, 0L, null, false)
-                        views.setTextViewText(R.id.widget_break_time, formatDuration(breakMs))
-
-                        views.setTextViewText(R.id.widget_status, "● WORKING")
-                        views.setTextColor(R.id.widget_status, Color.parseColor("#9AB87A"))
-                    }
-                    "BREAK" -> {
-                        // Work is paused (show static text, no seconds if >= 1m)
-                        views.setViewVisibility(R.id.widget_work_chrono, View.GONE)
-                        views.setViewVisibility(R.id.widget_work_time, View.VISIBLE)
-                        views.setChronometer(R.id.widget_work_chrono, 0L, null, false)
-                        views.setTextViewText(R.id.widget_work_time, formatDuration(workMs))
-
-                        if (currentBreakMs < ONE_MINUTE_MS) {
-                            // First minute: show live ticking Chronometer with seconds
-                            val chronoBase = elapsedRealtime - currentBreakMs
-                            views.setViewVisibility(R.id.widget_break_chrono, View.VISIBLE)
-                            views.setViewVisibility(R.id.widget_break_time, View.GONE)
-                            views.setChronometer(R.id.widget_break_chrono, chronoBase, null, true)
-                        } else {
-                            // A minute has passed: STOP showing seconds, show minutes only!
-                            views.setViewVisibility(R.id.widget_break_chrono, View.GONE)
-                            views.setChronometer(R.id.widget_break_chrono, 0L, null, false)
-                            views.setViewVisibility(R.id.widget_break_time, View.VISIBLE)
-                            views.setTextViewText(R.id.widget_break_time, formatDuration(currentBreakMs))
-                        }
-
-                        views.setTextViewText(R.id.widget_status, "● ON BREAK")
-                        views.setTextColor(R.id.widget_status, Color.parseColor("#E2B068"))
-                    }
-                    else -> {
-                        // IDLE / STOPPED: Both Chronometers hidden, static text shown (no seconds if >= 1m)
-                        views.setViewVisibility(R.id.widget_work_chrono, View.GONE)
-                        views.setViewVisibility(R.id.widget_work_time, View.VISIBLE)
-                        views.setChronometer(R.id.widget_work_chrono, 0L, null, false)
-                        views.setTextViewText(R.id.widget_work_time, formatDuration(workMs))
-
-                        views.setViewVisibility(R.id.widget_break_chrono, View.GONE)
-                        views.setViewVisibility(R.id.widget_break_time, View.VISIBLE)
-                        views.setChronometer(R.id.widget_break_chrono, 0L, null, false)
-                        views.setTextViewText(R.id.widget_break_time, formatDuration(breakMs))
-
-                        views.setTextViewText(R.id.widget_status, "IDLE")
-                        views.setTextColor(R.id.widget_status, Color.parseColor("#717E94"))
-                    }
-                }
-
-                // Percentages & summary
-                views.setTextViewText(R.id.widget_work_percent, "$workPct%")
-                views.setTextViewText(R.id.widget_break_percent, "$breakPct%")
-                views.setTextViewText(R.id.widget_total_time, "Total " + formatDuration(totalMs))
-                views.setTextViewText(R.id.widget_balance_label, "Work $workPct% • Break $breakPct%")
-
-                // Minimal Dual Progress Bar
-                if (totalMs > 0) {
-                    views.setViewVisibility(R.id.widget_progress_empty, View.GONE)
-                    views.setViewVisibility(R.id.widget_progress_bar, View.VISIBLE)
-                    views.setProgressBar(R.id.widget_progress_bar, 100, workPct, false)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    val compactViews = buildWidgetViews(
+                        context, R.layout.widget_productivity,
+                        currentMode, workMs, breakMs, currentWorkMs, currentBreakMs,
+                        totalMs, workPct, breakPct, elapsedRealtime
+                    )
+                    val tallViews = buildWidgetViews(
+                        context, R.layout.widget_productivity_tall,
+                        currentMode, workMs, breakMs, currentWorkMs, currentBreakMs,
+                        totalMs, workPct, breakPct, elapsedRealtime
+                    )
+                    val viewsMap = mapOf(
+                        SizeF(120f, 60f) to compactViews,
+                        SizeF(120f, 130f) to tallViews
+                    )
+                    appWidgetManager.updateAppWidget(appWidgetId, RemoteViews(viewsMap))
                 } else {
-                    views.setViewVisibility(R.id.widget_progress_empty, View.VISIBLE)
-                    views.setViewVisibility(R.id.widget_progress_bar, View.GONE)
+                    val layoutId = if (minHeight >= 130) R.layout.widget_productivity_tall else R.layout.widget_productivity
+                    val views = buildWidgetViews(
+                        context, layoutId,
+                        currentMode, workMs, breakMs, currentWorkMs, currentBreakMs,
+                        totalMs, workPct, breakPct, elapsedRealtime
+                    )
+                    appWidgetManager.updateAppWidget(appWidgetId, views)
                 }
-
-                // Click Intents
-                views.setOnClickPendingIntent(
-                    R.id.btn_widget_work,
-                    getBroadcastPendingIntent(context, ACTION_START_WORK)
-                )
-                views.setOnClickPendingIntent(
-                    R.id.btn_widget_break,
-                    getBroadcastPendingIntent(context, ACTION_START_BREAK)
-                )
-                views.setOnClickPendingIntent(
-                    R.id.btn_widget_stop,
-                    getBroadcastPendingIntent(context, ACTION_STOP)
-                )
-
-                // Open app on clicking header
-                val openAppIntent = Intent(context, MainActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                }
-                val openAppPendingIntent = PendingIntent.getActivity(
-                    context,
-                    0,
-                    openAppIntent,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                )
-                views.setOnClickPendingIntent(R.id.widget_header_container, openAppPendingIntent)
-
-                appWidgetManager.updateAppWidget(appWidgetId, views)
             } catch (e: Exception) {
                 android.util.Log.e("ProductivityWidget", "Error updating widget $appWidgetId: ${e.message}", e)
             }
+        }
+
+        private fun buildWidgetViews(
+            context: Context,
+            layoutId: Int,
+            currentMode: String,
+            workMs: Long,
+            breakMs: Long,
+            currentWorkMs: Long,
+            currentBreakMs: Long,
+            totalMs: Long,
+            workPct: Int,
+            breakPct: Int,
+            elapsedRealtime: Long
+        ): RemoteViews {
+            val views = RemoteViews(context.packageName, layoutId)
+
+            // Real-time ticking Chronometers & static text depending on active state
+            when (currentMode) {
+                "WORK" -> {
+                    if (currentWorkMs < ONE_MINUTE_MS) {
+                        // First minute: show live ticking Chronometer with seconds
+                        val chronoBase = elapsedRealtime - currentWorkMs
+                        views.setViewVisibility(R.id.widget_work_chrono, View.VISIBLE)
+                        views.setViewVisibility(R.id.widget_work_time, View.GONE)
+                        views.setChronometer(R.id.widget_work_chrono, chronoBase, null, true)
+                    } else {
+                        // A minute has passed: STOP showing seconds, show minutes only!
+                        views.setViewVisibility(R.id.widget_work_chrono, View.GONE)
+                        views.setChronometer(R.id.widget_work_chrono, 0L, null, false)
+                        views.setViewVisibility(R.id.widget_work_time, View.VISIBLE)
+                        views.setTextViewText(R.id.widget_work_time, formatDuration(currentWorkMs))
+                    }
+
+                    // Break is paused (show static text, no seconds if >= 1m)
+                    views.setViewVisibility(R.id.widget_break_chrono, View.GONE)
+                    views.setViewVisibility(R.id.widget_break_time, View.VISIBLE)
+                    views.setChronometer(R.id.widget_break_chrono, 0L, null, false)
+                    views.setTextViewText(R.id.widget_break_time, formatDuration(breakMs))
+
+                    views.setTextViewText(R.id.widget_status, "● WORKING")
+                    views.setTextColor(R.id.widget_status, Color.parseColor("#9AB87A"))
+                }
+                "BREAK" -> {
+                    // Work is paused (show static text, no seconds if >= 1m)
+                    views.setViewVisibility(R.id.widget_work_chrono, View.GONE)
+                    views.setViewVisibility(R.id.widget_work_time, View.VISIBLE)
+                    views.setChronometer(R.id.widget_work_chrono, 0L, null, false)
+                    views.setTextViewText(R.id.widget_work_time, formatDuration(workMs))
+
+                    if (currentBreakMs < ONE_MINUTE_MS) {
+                        // First minute: show live ticking Chronometer with seconds
+                        val chronoBase = elapsedRealtime - currentBreakMs
+                        views.setViewVisibility(R.id.widget_break_chrono, View.VISIBLE)
+                        views.setViewVisibility(R.id.widget_break_time, View.GONE)
+                        views.setChronometer(R.id.widget_break_chrono, chronoBase, null, true)
+                    } else {
+                        // A minute has passed: STOP showing seconds, show minutes only!
+                        views.setViewVisibility(R.id.widget_break_chrono, View.GONE)
+                        views.setChronometer(R.id.widget_break_chrono, 0L, null, false)
+                        views.setViewVisibility(R.id.widget_break_time, View.VISIBLE)
+                        views.setTextViewText(R.id.widget_break_time, formatDuration(currentBreakMs))
+                    }
+
+                    views.setTextViewText(R.id.widget_status, "● ON BREAK")
+                    views.setTextColor(R.id.widget_status, Color.parseColor("#E2B068"))
+                }
+                else -> {
+                    // IDLE / STOPPED: Both Chronometers hidden, static text shown (no seconds if >= 1m)
+                    views.setViewVisibility(R.id.widget_work_chrono, View.GONE)
+                    views.setViewVisibility(R.id.widget_work_time, View.VISIBLE)
+                    views.setChronometer(R.id.widget_work_chrono, 0L, null, false)
+                    views.setTextViewText(R.id.widget_work_time, formatDuration(workMs))
+
+                    views.setViewVisibility(R.id.widget_break_chrono, View.GONE)
+                    views.setViewVisibility(R.id.widget_break_time, View.VISIBLE)
+                    views.setChronometer(R.id.widget_break_chrono, 0L, null, false)
+                    views.setTextViewText(R.id.widget_break_time, formatDuration(breakMs))
+
+                    views.setTextViewText(R.id.widget_status, "IDLE")
+                    views.setTextColor(R.id.widget_status, Color.parseColor("#717E94"))
+                }
+            }
+
+            // Percentages & summary
+            views.setTextViewText(R.id.widget_work_percent, "$workPct%")
+            views.setTextViewText(R.id.widget_break_percent, "$breakPct%")
+            views.setTextViewText(R.id.widget_total_time, "Total " + formatDuration(totalMs))
+            views.setTextViewText(R.id.widget_balance_label, "Work $workPct% • Break $breakPct%")
+
+            // Minimal Dual Progress Bar
+            if (totalMs > 0) {
+                views.setViewVisibility(R.id.widget_progress_empty, View.GONE)
+                views.setViewVisibility(R.id.widget_progress_bar, View.VISIBLE)
+                views.setProgressBar(R.id.widget_progress_bar, 100, workPct, false)
+            } else {
+                views.setViewVisibility(R.id.widget_progress_empty, View.VISIBLE)
+                views.setViewVisibility(R.id.widget_progress_bar, View.GONE)
+            }
+
+            // Click Intents
+            views.setOnClickPendingIntent(
+                R.id.btn_widget_work,
+                getBroadcastPendingIntent(context, ACTION_START_WORK)
+            )
+            views.setOnClickPendingIntent(
+                R.id.btn_widget_break,
+                getBroadcastPendingIntent(context, ACTION_START_BREAK)
+            )
+            views.setOnClickPendingIntent(
+                R.id.btn_widget_stop,
+                getBroadcastPendingIntent(context, ACTION_STOP)
+            )
+
+            // Open app on clicking header
+            val openAppIntent = Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+            val openAppPendingIntent = PendingIntent.getActivity(
+                context,
+                0,
+                openAppIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            views.setOnClickPendingIntent(R.id.widget_header_container, openAppPendingIntent)
+
+            return views
         }
 
         private fun scheduleNextUpdate(context: Context, delayMs: Long) {

@@ -5,10 +5,7 @@
     android:layout_height="match_parent"
     android:background="@drawable/widget_bg"
     android:orientation="vertical"
-    android:paddingLeft="12dp"
-    android:paddingRight="12dp"
-    android:paddingTop="9dp"
-    android:paddingBottom="9dp">
+    android:padding="14dp">
 
     <!-- Header / Status Row -->
     <LinearLayout
@@ -17,15 +14,16 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:layout_marginBottom="4dp">
+        android:layout_marginBottom="10dp">
 
         <TextView
+            android:id="@+id/widget_tracker_title"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="TRACKER"
             android:textColor="@color/text_muted"
-            android:textSize="10sp"
+            android:textSize="11sp"
             android:textStyle="bold"
             android:letterSpacing="0.08" />
 
@@ -35,11 +33,11 @@
             android:layout_height="wrap_content"
             android:text="IDLE"
             android:textColor="@color/text_muted"
-            android:textSize="10sp"
+            android:textSize="11sp"
             android:textStyle="bold" />
     </LinearLayout>
 
-    <!-- Flexible Middle Area: Adapts smoothly to 2-unit heights -->
+    <!-- Flexible Middle Area: Expands proportionally in tall mode -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -52,7 +50,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginBottom="5dp">
+            android:layout_marginBottom="10dp">
 
             <!-- Work Card -->
             <LinearLayout
@@ -61,18 +59,18 @@
                 android:layout_weight="1"
                 android:background="@drawable/widget_stat_card"
                 android:orientation="vertical"
-                android:paddingLeft="9dp"
-                android:paddingRight="9dp"
-                android:paddingTop="6dp"
-                android:paddingBottom="6dp"
-                android:layout_marginEnd="5dp">
+                android:paddingLeft="12dp"
+                android:paddingRight="12dp"
+                android:paddingTop="10dp"
+                android:paddingBottom="10dp"
+                android:layout_marginEnd="6dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
                     android:gravity="center_vertical"
-                    android:layout_marginBottom="2dp">
+                    android:layout_marginBottom="4dp">
 
                     <TextView
                         android:layout_width="0dp"
@@ -80,9 +78,9 @@
                         android:layout_weight="1"
                         android:text="WORK"
                         android:textColor="@color/work_green"
-                        android:textSize="10sp"
+                        android:textSize="11sp"
                         android:textStyle="bold"
-                        android:letterSpacing="0.05" />
+                        android:letterSpacing="0.06" />
 
                     <TextView
                         android:id="@+id/widget_work_percent"
@@ -90,7 +88,7 @@
                         android:layout_height="wrap_content"
                         android:text="0%"
                         android:textColor="@color/work_green"
-                        android:textSize="11sp"
+                        android:textSize="12sp"
                         android:textStyle="bold" />
                 </LinearLayout>
 
@@ -105,7 +103,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:textColor="@color/text_primary"
-                        android:textSize="19sp"
+                        android:textSize="25sp"
                         android:textStyle="bold"
                         android:visibility="gone" />
 
@@ -115,7 +113,7 @@
                         android:layout_height="wrap_content"
                         android:text="0m"
                         android:textColor="@color/text_primary"
-                        android:textSize="19sp"
+                        android:textSize="25sp"
                         android:textStyle="bold" />
                 </LinearLayout>
             </LinearLayout>
@@ -127,18 +125,18 @@
                 android:layout_weight="1"
                 android:background="@drawable/widget_stat_card"
                 android:orientation="vertical"
-                android:paddingLeft="9dp"
-                android:paddingRight="9dp"
-                android:paddingTop="6dp"
-                android:paddingBottom="6dp"
-                android:layout_marginStart="5dp">
+                android:paddingLeft="12dp"
+                android:paddingRight="12dp"
+                android:paddingTop="10dp"
+                android:paddingBottom="10dp"
+                android:layout_marginStart="6dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
                     android:gravity="center_vertical"
-                    android:layout_marginBottom="2dp">
+                    android:layout_marginBottom="4dp">
 
                     <TextView
                         android:layout_width="0dp"
@@ -146,9 +144,9 @@
                         android:layout_weight="1"
                         android:text="BREAK"
                         android:textColor="@color/break_amber"
-                        android:textSize="10sp"
+                        android:textSize="11sp"
                         android:textStyle="bold"
-                        android:letterSpacing="0.05" />
+                        android:letterSpacing="0.06" />
 
                     <TextView
                         android:id="@+id/widget_break_percent"
@@ -156,7 +154,7 @@
                         android:layout_height="wrap_content"
                         android:text="0%"
                         android:textColor="@color/break_amber"
-                        android:textSize="11sp"
+                        android:textSize="12sp"
                         android:textStyle="bold" />
                 </LinearLayout>
 
@@ -171,7 +169,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:textColor="@color/text_primary"
-                        android:textSize="19sp"
+                        android:textSize="25sp"
                         android:textStyle="bold"
                         android:visibility="gone" />
 
@@ -181,7 +179,7 @@
                         android:layout_height="wrap_content"
                         android:text="0m"
                         android:textColor="@color/text_primary"
-                        android:textSize="19sp"
+                        android:textSize="25sp"
                         android:textStyle="bold" />
                 </LinearLayout>
             </LinearLayout>
@@ -190,8 +188,8 @@
         <!-- Minimal Dual Progress Bar -->
         <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="5dp"
-            android:layout_marginBottom="4dp">
+            android:layout_height="7dp"
+            android:layout_marginBottom="8dp">
 
             <ImageView
                 android:id="@+id/widget_progress_empty"
@@ -225,7 +223,7 @@
                 android:layout_weight="1"
                 android:text="Total 0m"
                 android:textColor="@color/text_muted"
-                android:textSize="10sp" />
+                android:textSize="11sp" />
 
             <TextView
                 android:id="@+id/widget_balance_label"
@@ -233,16 +231,16 @@
                 android:layout_height="wrap_content"
                 android:text="Work 0% • Break 0%"
                 android:textColor="@color/text_muted"
-                android:textSize="10sp" />
+                android:textSize="11sp" />
         </LinearLayout>
     </LinearLayout>
 
-    <!-- Action Controls: Anchored at the bottom -->
+    <!-- Action Controls: Anchored at the bottom with spacious 48dp touch targets -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="38dp"
+        android:layout_height="48dp"
         android:orientation="horizontal"
-        android:layout_marginTop="4dp">
+        android:layout_marginTop="8dp">
 
         <!-- Work Button -->
         <LinearLayout
@@ -252,11 +250,11 @@
             android:layout_weight="1"
             android:background="@drawable/btn_work_bg"
             android:gravity="center"
-            android:layout_marginEnd="6dp">
+            android:layout_marginEnd="8dp">
 
             <ImageView
-                android:layout_width="20dp"
-                android:layout_height="20dp"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
                 android:src="@drawable/ic_work"
                 android:clickable="false"
                 android:focusable="false"
@@ -271,11 +269,11 @@
             android:layout_weight="1"
             android:background="@drawable/btn_break_bg"
             android:gravity="center"
-            android:layout_marginEnd="6dp">
+            android:layout_marginEnd="8dp">
 
             <ImageView
-                android:layout_width="20dp"
-                android:layout_height="20dp"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
                 android:src="@drawable/ic_break"
                 android:clickable="false"
                 android:focusable="false"
@@ -292,8 +290,8 @@
             android:gravity="center">
 
             <ImageView
-                android:layout_width="18dp"
-                android:layout_height="18dp"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
                 android:src="@drawable/ic_stop"
                 android:clickable="false"
                 android:focusable="false"
