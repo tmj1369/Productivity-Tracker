@@ -5,7 +5,10 @@
     android:layout_height="match_parent"
     android:background="@drawable/widget_bg"
     android:orientation="vertical"
-    android:padding="14dp">
+    android:paddingLeft="12dp"
+    android:paddingRight="12dp"
+    android:paddingTop="7dp"
+    android:paddingBottom="7dp">
 
     <!-- Header / Status Row -->
     <LinearLayout
@@ -14,7 +17,7 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:layout_marginBottom="10dp">
+        android:layout_marginBottom="3dp">
 
         <TextView
             android:layout_width="0dp"
@@ -22,7 +25,7 @@
             android:layout_weight="1"
             android:text="TRACKER"
             android:textColor="@color/text_muted"
-            android:textSize="10sp"
+            android:textSize="9sp"
             android:textStyle="bold"
             android:letterSpacing="0.08" />
 
@@ -32,220 +35,247 @@
             android:layout_height="wrap_content"
             android:text="IDLE"
             android:textColor="@color/text_muted"
-            android:textSize="10sp"
+            android:textSize="9sp"
             android:textStyle="bold" />
     </LinearLayout>
 
-    <!-- Two Metric Cards -->
+    <!-- Flexible Middle Area: Adapts smoothly to 2-unit and 3-unit heights -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginBottom="10dp">
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:gravity="center_vertical">
 
-        <!-- Work Card -->
+        <!-- Two Metric Cards -->
         <LinearLayout
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:background="@drawable/widget_stat_card"
-            android:orientation="vertical"
-            android:padding="10dp"
-            android:layout_marginEnd="5dp">
+            android:orientation="horizontal"
+            android:layout_marginBottom="4dp">
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="WORK"
-                android:textColor="@color/work_green"
-                android:textSize="10sp"
-                android:textStyle="bold"
-                android:letterSpacing="0.05"
-                android:layout_marginBottom="6dp" />
-
+            <!-- Work Card -->
             <LinearLayout
-                android:layout_width="match_parent"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="bottom">
+                android:layout_weight="1"
+                android:background="@drawable/widget_stat_card"
+                android:orientation="vertical"
+                android:paddingLeft="8dp"
+                android:paddingRight="8dp"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp"
+                android:layout_marginEnd="4dp">
 
-                <Chronometer
-                    android:id="@+id/widget_work_chrono"
-                    android:layout_width="0dp"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:textColor="@color/text_primary"
-                    android:textSize="20sp"
-                    android:textStyle="bold"
-                    android:visibility="gone" />
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="1dp">
 
-                <TextView
-                    android:id="@+id/widget_work_time"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="00m"
-                    android:textColor="@color/text_primary"
-                    android:textSize="20sp"
-                    android:textStyle="bold" />
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="WORK"
+                        android:textColor="@color/work_green"
+                        android:textSize="9sp"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.05" />
 
-                <TextView
-                    android:id="@+id/widget_work_percent"
-                    android:layout_width="wrap_content"
+                    <TextView
+                        android:id="@+id/widget_work_percent"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0%"
+                        android:textColor="@color/work_green"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="0%"
-                    android:textColor="@color/work_green"
-                    android:textSize="11sp"
-                    android:textStyle="bold" />
+                    android:orientation="horizontal"
+                    android:gravity="bottom">
+
+                    <Chronometer
+                        android:id="@+id/widget_work_chrono"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/text_primary"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:visibility="gone" />
+
+                    <TextView
+                        android:id="@+id/widget_work_time"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="0m"
+                        android:textColor="@color/text_primary"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Break Card -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:background="@drawable/widget_stat_card"
+                android:orientation="vertical"
+                android:paddingLeft="8dp"
+                android:paddingRight="8dp"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp"
+                android:layout_marginStart="4dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="1dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="BREAK"
+                        android:textColor="@color/break_amber"
+                        android:textSize="9sp"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.05" />
+
+                    <TextView
+                        android:id="@+id/widget_break_percent"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0%"
+                        android:textColor="@color/break_amber"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="bottom">
+
+                    <Chronometer
+                        android:id="@+id/widget_break_chrono"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/text_primary"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:visibility="gone" />
+
+                    <TextView
+                        android:id="@+id/widget_break_time"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="0m"
+                        android:textColor="@color/text_primary"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
             </LinearLayout>
         </LinearLayout>
 
-        <!-- Break Card -->
+        <!-- Minimal Dual Progress Bar -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="4dp"
+            android:layout_marginBottom="3dp">
+
+            <ImageView
+                android:id="@+id/widget_progress_empty"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@drawable/widget_progress_bar_empty"
+                android:contentDescription="Empty Progress"
+                android:visibility="visible" />
+
+            <ProgressBar
+                android:id="@+id/widget_progress_bar"
+                style="@android:style/Widget.ProgressBar.Horizontal"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:max="100"
+                android:progress="0"
+                android:progressDrawable="@drawable/widget_progress_bar"
+                android:visibility="gone" />
+        </FrameLayout>
+
+        <!-- Ratio Summary -->
         <LinearLayout
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:background="@drawable/widget_stat_card"
-            android:orientation="vertical"
-            android:padding="10dp"
-            android:layout_marginStart="5dp">
+            android:orientation="horizontal">
 
             <TextView
+                android:id="@+id/widget_total_time"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Total 0m"
+                android:textColor="@color/text_muted"
+                android:textSize="9sp" />
+
+            <TextView
+                android:id="@+id/widget_balance_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="BREAK"
-                android:textColor="@color/break_amber"
-                android:textSize="10sp"
-                android:textStyle="bold"
-                android:letterSpacing="0.05"
-                android:layout_marginBottom="6dp" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="bottom">
-
-                <Chronometer
-                    android:id="@+id/widget_break_chrono"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:textColor="@color/text_primary"
-                    android:textSize="20sp"
-                    android:textStyle="bold"
-                    android:visibility="gone" />
-
-                <TextView
-                    android:id="@+id/widget_break_time"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="00m"
-                    android:textColor="@color/text_primary"
-                    android:textSize="20sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/widget_break_percent"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="0%"
-                    android:textColor="@color/break_amber"
-                    android:textSize="11sp"
-                    android:textStyle="bold" />
-            </LinearLayout>
+                android:text="Work 0% • Break 0%"
+                android:textColor="@color/text_muted"
+                android:textSize="9sp" />
         </LinearLayout>
     </LinearLayout>
 
-    <!-- Minimal Progress Bar -->
-    <FrameLayout
-        android:layout_width="match_parent"
-        android:layout_height="7dp"
-        android:layout_marginBottom="8dp">
-
-        <ImageView
-            android:id="@+id/widget_progress_empty"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:background="@drawable/widget_progress_bar_empty"
-            android:contentDescription="Empty Progress"
-            android:visibility="visible" />
-
-        <ProgressBar
-            android:id="@+id/widget_progress_bar"
-            style="@android:style/Widget.ProgressBar.Horizontal"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:max="100"
-            android:progress="0"
-            android:progressDrawable="@drawable/widget_progress_bar"
-            android:visibility="gone" />
-    </FrameLayout>
-
-    <!-- Ratio Summary -->
+    <!-- Action Controls: Anchored at the bottom -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="34dp"
         android:orientation="horizontal"
-        android:layout_marginBottom="12dp">
-
-        <TextView
-            android:id="@+id/widget_total_time"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Total 0m"
-            android:textColor="@color/text_muted"
-            android:textSize="10sp" />
-
-        <TextView
-            android:id="@+id/widget_balance_label"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Balance 50/50"
-            android:textColor="@color/text_muted"
-            android:textSize="10sp" />
-    </LinearLayout>
-
-    <!-- Action Controls (Icon Only) -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal">
+        android:layout_marginTop="2dp">
 
         <!-- Work Button -->
         <LinearLayout
             android:id="@+id/btn_widget_work"
             android:layout_width="0dp"
-            android:layout_height="44dp"
+            android:layout_height="match_parent"
             android:layout_weight="1"
             android:background="@drawable/btn_work_bg"
             android:gravity="center"
             android:layout_marginEnd="6dp">
 
             <ImageView
-                android:layout_width="22dp"
-                android:layout_height="22dp"
+                android:layout_width="18dp"
+                android:layout_height="18dp"
                 android:src="@drawable/ic_work"
                 android:clickable="false"
                 android:focusable="false"
                 android:contentDescription="Work" />
         </LinearLayout>
 
-        <!-- Break Button -->
+        <!-- Break Button (Coffee Mug) -->
         <LinearLayout
             android:id="@+id/btn_widget_break"
             android:layout_width="0dp"
-            android:layout_height="44dp"
+            android:layout_height="match_parent"
             android:layout_weight="1"
             android:background="@drawable/btn_break_bg"
             android:gravity="center"
             android:layout_marginEnd="6dp">
 
             <ImageView
-                android:layout_width="22dp"
-                android:layout_height="22dp"
+                android:layout_width="18dp"
+                android:layout_height="18dp"
                 android:src="@drawable/ic_break"
                 android:clickable="false"
                 android:focusable="false"
@@ -256,14 +286,14 @@
         <LinearLayout
             android:id="@+id/btn_widget_stop"
             android:layout_width="0dp"
-            android:layout_height="44dp"
+            android:layout_height="match_parent"
             android:layout_weight="1"
             android:background="@drawable/btn_stop_bg"
             android:gravity="center">
 
             <ImageView
-                android:layout_width="20dp"
-                android:layout_height="20dp"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
                 android:src="@drawable/ic_stop"
                 android:clickable="false"
                 android:focusable="false"
