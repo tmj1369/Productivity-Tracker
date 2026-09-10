@@ -2,15 +2,31 @@
   "name": "Productivity Tracker",
   "short_name": "Tracker",
   "start_url": "./",
+  "scope": "./",
+  "id": "productivity-tracker-app",
   "display": "standalone",
   "background_color": "#07090F",
   "theme_color": "#07090F",
   "orientation": "portrait",
+  "description": "Minimalist mobile productivity tracker widget with work, break, and stop timers.",
   "icons": [
     {
-      "src": "./favicon.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
-      "type": "image/x-icon"
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
     }
   ]
 }
