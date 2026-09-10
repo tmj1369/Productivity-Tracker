@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">Productivity Tracker</string>
+    <string name="widget_name">Tracker Widget</string>
+    <string name="label_work">WORK</string>
+    <string name="label_break">BREAK</string>
+    <string name="status_idle">IDLE</string>
+    <string name="status_working">TRACKING WORK</string>
+    <string name="status_break">ON BREAK</string>
+</resources>

@@ -35,6 +35,30 @@ function formatMinutes(totalMs: number): string {
 
 export default function App() {
   const [tracker, setTracker] = useState<TrackerState>(() => {
+    // Check if Android Native bridge is available
+    if (typeof window !== 'undefined' && (window as unknown as { AndroidNative?: { getMode: () => string; getWorkMs: () => number; getBreakMs: () => number; getLastTimestamp: () => number } }).AndroidNative?.getMode) {
+      try {
+        const bridge = (window as unknown as { AndroidNative: { getMode: () => string; getWorkMs: () => number; getBreakMs: () => number; getLastTimestamp: () => number } }).AndroidNative;
+        const mode = bridge.getMode();
+        const workMs = Number(bridge.getWorkMs()) || 0;
+        const breakMs = Number(bridge.getBreakMs()) || 0;
+        const lastTs = Number(bridge.getLastTimestamp()) || null;
+        if (mode === 'WORK' || mode === 'BREAK' || workMs > 0 || breakMs > 0) {
+          return {
+            status: mode === 'WORK' ? 'WORK' : mode === 'BREAK' ? 'BREAK' : 'IDLE',
+            workElapsedMs: workMs,
+            breakElapsedMs: breakMs,
+            activeStartTimestamp: (mode === 'WORK' || mode === 'BREAK') ? (lastTs || Date.now()) : null,
+            lastUpdatedTimestamp: Date.now(),
+            soundEnabled: false,
+            history: []
+          };
+        }
+      } catch (e) {
+        console.warn('Native bridge load error:', e);
+      }
+    }
+
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
@@ -94,10 +118,21 @@ export default function App() {
     }
   }, [tracker.status, currentWorkMs, currentBreakMs]);
 
-  // Persist state to LocalStorage
+  // Persist state to LocalStorage and Android Native Widget
   const saveStateToStorage = useCallback((stateToSave: TrackerState) => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
+      if (typeof window !== 'undefined') {
+        const nativeBridge = (window as unknown as { AndroidNative?: { syncState: (mode: string, work: number, brk: number, ts: number) => void } }).AndroidNative;
+        if (nativeBridge?.syncState) {
+          nativeBridge.syncState(
+            stateToSave.status,
+            stateToSave.workElapsedMs,
+            stateToSave.breakElapsedMs,
+            stateToSave.activeStartTimestamp || Date.now()
+          );
+        }
+      }
     } catch (err) {
       console.warn('Unable to write state to localStorage:', err);
     }

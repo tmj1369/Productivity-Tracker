@@ -1,0 +1,15 @@
+<resources>
+    <color name="bg_main">#07090F</color>
+    <color name="card_bg">#0E121B</color>
+    <color name="card_border">#1C2436</color>
+    <color name="card_inner">#121722</color>
+    <color name="work_green">#9AB87A</color>
+    <color name="work_green_dark">#2B3820</color>
+    <color name="break_amber">#E2B068</color>
+    <color name="break_amber_dark">#3D2E14</color>
+    <color name="stop_red">#D33E43</color>
+    <color name="stop_red_dark">#3B1416</color>
+    <color name="text_primary">#F1F4FA</color>
+    <color name="text_muted">#717E94</color>
+    <color name="track_bg">#161C2A</color>
+</resources>
