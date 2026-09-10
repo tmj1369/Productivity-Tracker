@@ -124,7 +124,8 @@ export function generateSeedHistory(): SessionInterval[] {
  */
 export function aggregateDaySummaries(
   history: SessionInterval[],
-  activeInterval?: SessionInterval | null
+  activeInterval?: SessionInterval | null,
+  todayLiveTotals?: { workMs: number; breakMs: number }
 ): DaySummary[] {
   const allIntervals = [...history];
   if (activeInterval && activeInterval.durationMs > 0) {
@@ -166,6 +167,17 @@ export function aggregateDaySummaries(
         if (item.durationMs > longestBreakMs) {
           longestBreakMs = item.durationMs;
         }
+      }
+    }
+
+    // If this is today, reconcile with live accumulated work and break times
+    // so that the daily stats view never contradicts the live timer or android widget
+    if (dateKey === todayKey && todayLiveTotals) {
+      if (todayLiveTotals.workMs > totalWorkMs) {
+        totalWorkMs = todayLiveTotals.workMs;
+      }
+      if (todayLiveTotals.breakMs > totalBreakMs) {
+        totalBreakMs = todayLiveTotals.breakMs;
       }
     }
 

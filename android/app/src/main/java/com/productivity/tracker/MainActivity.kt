@@ -5,6 +5,7 @@ import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.graphics.Color
 import android.os.Bundle
 import android.util.Log
@@ -22,6 +23,7 @@ import androidx.webkit.WebViewAssetLoader
 class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
+    private lateinit var prefsListener: SharedPreferences.OnSharedPreferenceChangeListener
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -72,24 +74,31 @@ class MainActivity : AppCompatActivity() {
 
         setContentView(webView)
 
+        // Register listener so that widget actions immediately reflect in WebView
+        val prefs = getSharedPreferences(ProductivityWidgetProvider.PREFS_NAME, Context.MODE_PRIVATE)
+        prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
+            runOnUiThread {
+                webView.evaluateJavascript("window.onNativeStateSync && window.onNativeStateSync()", null)
+            }
+        }
+        prefs.registerOnSharedPreferenceChangeListener(prefsListener)
+
         // Load via virtual HTTPS domain to ensure ES module scripts and local storage work without CORS
         webView.loadUrl("https://appassets.androidplatform.net/assets/web/index.html")
     }
 
     override fun onResume() {
         super.onResume()
-        notifyWidgetUpdate()
+        ProductivityWidgetProvider.notifyWidgetsAndSchedule(this)
+        webView.post {
+            webView.evaluateJavascript("window.onNativeStateSync && window.onNativeStateSync()", null)
+        }
     }
 
-    private fun notifyWidgetUpdate() {
-        val intent = Intent(this, ProductivityWidgetProvider::class.java).apply {
-            action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-        }
-        val ids = AppWidgetManager.getInstance(this).getAppWidgetIds(
-            ComponentName(this, ProductivityWidgetProvider::class.java)
-        )
-        intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
-        sendBroadcast(intent)
+    override fun onDestroy() {
+        super.onDestroy()
+        val prefs = getSharedPreferences(ProductivityWidgetProvider.PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.unregisterOnSharedPreferenceChangeListener(prefsListener)
     }
 
     class WebAppInterface(private val context: Context) {
@@ -104,7 +113,16 @@ class MainActivity : AppCompatActivity() {
             val workMs = prefs.getLong(ProductivityWidgetProvider.KEY_WORK_MS, 0L)
             val breakMs = prefs.getLong(ProductivityWidgetProvider.KEY_BREAK_MS, 0L)
             val lastTs = prefs.getLong(ProductivityWidgetProvider.KEY_LAST_TIMESTAMP, 0L)
-            return "{\"mode\":\"$mode\",\"workMs\":$workMs,\"breakMs\":$breakMs,\"lastTimestamp\":$lastTs}"
+            val updatedAt = prefs.getLong(ProductivityWidgetProvider.KEY_UPDATED_AT, lastTs)
+            val date = prefs.getString(ProductivityWidgetProvider.KEY_DATE, "") ?: ""
+            val sessions = prefs.getString(ProductivityWidgetProvider.KEY_SESSIONS_JSON, "[]") ?: "[]"
+
+            return "{\"mode\":\"$mode\",\"workMs\":$workMs,\"breakMs\":$breakMs,\"lastTimestamp\":$lastTs,\"updatedAt\":$updatedAt,\"date\":\"$date\",\"sessionsJson\":$sessions}"
+        }
+
+        @JavascriptInterface
+        fun clearPendingSessions() {
+            prefs.edit().putString(ProductivityWidgetProvider.KEY_SESSIONS_JSON, "[]").apply()
         }
 
         @JavascriptInterface
@@ -126,13 +144,17 @@ class MainActivity : AppCompatActivity() {
                 val regexWork = Regex("\"workMs\"\\s*:\\s*([0-9]+)")
                 val regexBreak = Regex("\"breakMs\"\\s*:\\s*([0-9]+)")
                 val regexTs = Regex("\"timestamp\"\\s*:\\s*([0-9]+)")
+                val regexUpdated = Regex("\"updatedAt\"\\s*:\\s*([0-9]+)")
+                val regexDate = Regex("\"date\"\\s*:\\s*\"([^\"]+)\"")
 
                 val mode = regexMode.find(jsonString)?.groupValues?.get(1) ?: "IDLE"
                 val workMs = regexWork.find(jsonString)?.groupValues?.get(1)?.toLongOrNull() ?: 0L
                 val breakMs = regexBreak.find(jsonString)?.groupValues?.get(1)?.toLongOrNull() ?: 0L
                 val ts = regexTs.find(jsonString)?.groupValues?.get(1)?.toLongOrNull() ?: System.currentTimeMillis()
+                val updatedAt = regexUpdated.find(jsonString)?.groupValues?.get(1)?.toLongOrNull() ?: System.currentTimeMillis()
+                val date = regexDate.find(jsonString)?.groupValues?.get(1)
 
-                syncStateInternal(mode, workMs, breakMs, ts)
+                syncStateInternal(mode, workMs, breakMs, ts, updatedAt, date)
             } catch (e: Exception) {
                 Log.e("TrackerBridge", "Error parsing syncStateJson: $jsonString", e)
             }
@@ -140,30 +162,37 @@ class MainActivity : AppCompatActivity() {
 
         @JavascriptInterface
         fun syncState(mode: String, workMs: Double, breakMs: Double, timestamp: Double) {
-            syncStateInternal(mode, workMs.toLong(), breakMs.toLong(), timestamp.toLong())
+            val now = System.currentTimeMillis()
+            syncStateInternal(mode, workMs.toLong(), breakMs.toLong(), timestamp.toLong(), now, null)
         }
 
         @JavascriptInterface
         fun syncState(mode: String, workMs: Long, breakMs: Long, timestamp: Long) {
-            syncStateInternal(mode, workMs, breakMs, timestamp)
+            val now = System.currentTimeMillis()
+            syncStateInternal(mode, workMs, breakMs, timestamp, now, null)
         }
 
-        private fun syncStateInternal(mode: String, workMs: Long, breakMs: Long, timestamp: Long) {
-            prefs.edit()
+        private fun syncStateInternal(
+            mode: String,
+            workMs: Long,
+            breakMs: Long,
+            timestamp: Long,
+            updatedAt: Long,
+            date: String?
+        ) {
+            val editor = prefs.edit()
                 .putString(ProductivityWidgetProvider.KEY_MODE, mode)
                 .putLong(ProductivityWidgetProvider.KEY_WORK_MS, workMs)
                 .putLong(ProductivityWidgetProvider.KEY_BREAK_MS, breakMs)
                 .putLong(ProductivityWidgetProvider.KEY_LAST_TIMESTAMP, timestamp)
-                .apply()
+                .putLong(ProductivityWidgetProvider.KEY_UPDATED_AT, updatedAt)
 
-            val intent = Intent(context, ProductivityWidgetProvider::class.java).apply {
-                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+            if (!date.isNullOrEmpty()) {
+                editor.putString(ProductivityWidgetProvider.KEY_DATE, date)
             }
-            val ids = AppWidgetManager.getInstance(context).getAppWidgetIds(
-                ComponentName(context, ProductivityWidgetProvider::class.java)
-            )
-            intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
-            context.sendBroadcast(intent)
+            editor.apply()
+
+            ProductivityWidgetProvider.notifyWidgetsAndSchedule(context)
         }
     }
 }

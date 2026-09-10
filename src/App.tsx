@@ -9,7 +9,7 @@ import {
 import { TrackerStatus, TrackerState, SessionInterval } from './types';
 import { triggerHaptic } from './utils/audio';
 import { createBackgroundWorker } from './utils/timerWorker';
-import { generateSeedHistory, aggregateDaySummaries } from './utils/statsHelper';
+import { generateSeedHistory, aggregateDaySummaries, formatDateKey } from './utils/statsHelper';
 import { DailyStatsView } from './components/DailyStatsView';
 
 const STORAGE_KEY = 'productivity_tracker_widget_state_v1';
@@ -36,56 +36,73 @@ function formatMinutes(totalMs: number): string {
   return `${mins}m`;
 }
 
+function getNativeBridge() {
+  if (typeof window === 'undefined') return null;
+  return (window as unknown as {
+    AndroidNative?: {
+      getStateJson?: () => string;
+      clearPendingSessions?: () => void;
+      syncStateJson?: (json: string) => void;
+      syncState?: (mode: string, work: number, brk: number, ts: number) => void;
+    };
+  }).AndroidNative;
+}
+
 export default function App() {
   const [viewMode, setViewMode] = useState<'TIMER' | 'STATS'>('TIMER');
+  const isSyncingFromNativeRef = useRef<boolean>(false);
+
   const [tracker, setTracker] = useState<TrackerState>(() => {
     const seedHistory = generateSeedHistory();
+    let initialHistory = seedHistory;
 
-    // Check if Android Native bridge is available
-    if (typeof window !== 'undefined') {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved) as TrackerState;
+        if (parsed.history && parsed.history.length > 0) {
+          initialHistory = parsed.history;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load tracker state from localStorage:', e);
+    }
+
+    const bridge = getNativeBridge();
+    if (bridge?.getStateJson) {
       try {
-        const bridge = (window as unknown as {
-          AndroidNative?: {
-            getStateJson?: () => string;
-            getMode?: () => string;
-            getWorkMs?: () => number;
-            getBreakMs?: () => number;
-            getLastTimestamp?: () => number;
-          };
-        }).AndroidNative;
+        const raw = bridge.getStateJson();
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          const mode = (parsed.mode === 'WORK' || parsed.mode === 'BREAK') ? parsed.mode : 'IDLE';
+          const workMs = Number(parsed.workMs) || 0;
+          const breakMs = Number(parsed.breakMs) || 0;
+          const lastTs = Number(parsed.lastTimestamp) || 0;
+          const updatedAt = Number(parsed.updatedAt) || lastTs || Date.now();
+          const pendingSessions = Array.isArray(parsed.sessionsJson) ? parsed.sessionsJson : [];
 
-        if (bridge?.getStateJson) {
-          const parsed = JSON.parse(bridge.getStateJson());
-          if (parsed.mode === 'WORK' || parsed.mode === 'BREAK' || Number(parsed.workMs) > 0 || Number(parsed.breakMs) > 0) {
-            return {
-              status: parsed.mode === 'WORK' ? 'WORK' : parsed.mode === 'BREAK' ? 'BREAK' : 'IDLE',
-              workElapsedMs: Number(parsed.workMs) || 0,
-              breakElapsedMs: Number(parsed.breakMs) || 0,
-              activeStartTimestamp: (parsed.mode === 'WORK' || parsed.mode === 'BREAK') ? (Number(parsed.lastTimestamp) || Date.now()) : null,
-              lastUpdatedTimestamp: Date.now(),
-              soundEnabled: false,
-              history: seedHistory
-            };
+          let mergedHistory = initialHistory;
+          if (pendingSessions.length > 0) {
+            const existingIds = new Set(initialHistory.map(h => h.id));
+            const toAdd = pendingSessions.filter((s: SessionInterval) => !existingIds.has(s.id));
+            if (toAdd.length > 0) {
+              mergedHistory = [...toAdd, ...initialHistory];
+            }
+            bridge.clearPendingSessions?.();
           }
-        } else if (bridge?.getMode) {
-          const mode = bridge.getMode();
-          const workMs = Number(bridge.getWorkMs()) || 0;
-          const breakMs = Number(bridge.getBreakMs()) || 0;
-          const lastTs = Number(bridge.getLastTimestamp()) || null;
-          if (mode === 'WORK' || mode === 'BREAK' || workMs > 0 || breakMs > 0) {
-            return {
-              status: mode === 'WORK' ? 'WORK' : mode === 'BREAK' ? 'BREAK' : 'IDLE',
-              workElapsedMs: workMs,
-              breakElapsedMs: breakMs,
-              activeStartTimestamp: (mode === 'WORK' || mode === 'BREAK') ? (lastTs || Date.now()) : null,
-              lastUpdatedTimestamp: Date.now(),
-              soundEnabled: false,
-              history: seedHistory
-            };
-          }
+
+          return {
+            status: mode,
+            workElapsedMs: workMs,
+            breakElapsedMs: breakMs,
+            activeStartTimestamp: (mode === 'WORK' || mode === 'BREAK') ? (lastTs || Date.now()) : null,
+            lastUpdatedTimestamp: updatedAt,
+            soundEnabled: false,
+            history: mergedHistory,
+          };
         }
       } catch (e) {
-        console.warn('Native bridge load error:', e);
+        console.warn('Native bridge initial load error:', e);
       }
     }
 
@@ -95,15 +112,16 @@ export default function App() {
         const parsed = JSON.parse(saved) as TrackerState;
         return {
           ...parsed,
-          history: (parsed.history && parsed.history.length > 0) ? parsed.history : seedHistory
+          history: initialHistory,
         };
       }
     } catch (e) {
-      console.error('Failed to load tracker state from localStorage:', e);
+      console.warn('LocalStorage error:', e);
     }
+
     return {
       ...INITIAL_STATE,
-      history: seedHistory
+      history: initialHistory,
     };
   });
 
@@ -111,6 +129,64 @@ export default function App() {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [notificationMsg, setNotificationMsg] = useState<string | null>(null);
   const notificationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Synchronize from native Android widget state
+  const syncFromNative = useCallback((force = false) => {
+    const bridge = getNativeBridge();
+    if (!bridge?.getStateJson) return;
+
+    try {
+      const raw = bridge.getStateJson();
+      if (!raw) return;
+      const nativeData = JSON.parse(raw);
+      const nativeMode = (nativeData.mode === 'WORK' || nativeData.mode === 'BREAK') ? nativeData.mode : 'IDLE';
+      const nativeWorkMs = Number(nativeData.workMs) || 0;
+      const nativeBreakMs = Number(nativeData.breakMs) || 0;
+      const nativeLastTs = Number(nativeData.lastTimestamp) || 0;
+      const nativeUpdatedAt = Number(nativeData.updatedAt) || nativeLastTs || 0;
+      const nativeSessions: SessionInterval[] = Array.isArray(nativeData.sessionsJson) ? nativeData.sessionsJson : [];
+
+      setTracker(prev => {
+        const isNewer = nativeUpdatedAt > (prev.lastUpdatedTimestamp || 0);
+        const modeChanged = prev.status !== nativeMode;
+        const workDiff = Math.abs(prev.workElapsedMs - nativeWorkMs);
+        const breakDiff = Math.abs(prev.breakElapsedMs - nativeBreakMs);
+        const timeSignificantlyChanged = workDiff > 1000 || breakDiff > 1000;
+
+        let newHistory = prev.history;
+        if (nativeSessions.length > 0) {
+          const existingIds = new Set(prev.history.map(h => h.id));
+          const toAdd = nativeSessions.filter(s => !existingIds.has(s.id));
+          if (toAdd.length > 0) {
+            newHistory = [...toAdd, ...prev.history];
+          }
+          bridge.clearPendingSessions?.();
+        }
+
+        if (force || isNewer || modeChanged || (prev.status === 'IDLE' && timeSignificantlyChanged)) {
+          isSyncingFromNativeRef.current = true;
+          return {
+            ...prev,
+            status: nativeMode,
+            workElapsedMs: nativeWorkMs,
+            breakElapsedMs: nativeBreakMs,
+            activeStartTimestamp: (nativeMode === 'WORK' || nativeMode === 'BREAK') ? (nativeLastTs || Date.now()) : null,
+            lastUpdatedTimestamp: Math.max(nativeUpdatedAt, Date.now()),
+            history: newHistory,
+          };
+        } else if (newHistory !== prev.history) {
+          return {
+            ...prev,
+            history: newHistory,
+          };
+        }
+
+        return prev;
+      });
+    } catch (e) {
+      console.warn('syncFromNative failed:', e);
+    }
+  }, []);
 
   // Synchronize and calculate active runtimes
   const { currentWorkMs, currentBreakMs } = useMemo(() => {
@@ -159,64 +235,108 @@ export default function App() {
   const saveStateToStorage = useCallback((stateToSave: TrackerState) => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
-      if (typeof window !== 'undefined') {
-        const nativeBridge = (window as unknown as {
-          AndroidNative?: {
-            syncStateJson?: (json: string) => void;
-            syncState?: (mode: string, work: number, brk: number, ts: number) => void;
-          };
-        }).AndroidNative;
+      const bridge = getNativeBridge();
 
-        if (nativeBridge?.syncStateJson) {
-          nativeBridge.syncStateJson(
-            JSON.stringify({
-              mode: stateToSave.status,
-              workMs: stateToSave.workElapsedMs,
-              breakMs: stateToSave.breakElapsedMs,
-              timestamp: stateToSave.activeStartTimestamp || Date.now()
-            })
-          );
-        } else if (nativeBridge?.syncState) {
-          nativeBridge.syncState(
-            stateToSave.status,
-            stateToSave.workElapsedMs,
-            stateToSave.breakElapsedMs,
-            stateToSave.activeStartTimestamp || Date.now()
-          );
-        }
+      if (bridge?.syncStateJson) {
+        bridge.syncStateJson(
+          JSON.stringify({
+            mode: stateToSave.status,
+            workMs: stateToSave.workElapsedMs,
+            breakMs: stateToSave.breakElapsedMs,
+            timestamp: stateToSave.activeStartTimestamp || Date.now(),
+            updatedAt: stateToSave.lastUpdatedTimestamp || Date.now(),
+            date: formatDateKey(Date.now()),
+          })
+        );
+      } else if (bridge?.syncState) {
+        bridge.syncState(
+          stateToSave.status,
+          stateToSave.workElapsedMs,
+          stateToSave.breakElapsedMs,
+          stateToSave.activeStartTimestamp || Date.now()
+        );
       }
     } catch (err) {
-      console.warn('Unable to write state to localStorage:', err);
+      console.warn('Unable to write state to storage:', err);
     }
   }, []);
 
-  // Sync to LocalStorage on tracker changes
+  // Sync to LocalStorage on tracker changes, avoiding echo loops when synced from native
   useEffect(() => {
+    if (isSyncingFromNativeRef.current) {
+      isSyncingFromNativeRef.current = false;
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(tracker));
+      } catch (e) {
+        console.warn(e);
+      }
+      return;
+    }
     saveStateToStorage(tracker);
   }, [tracker, saveStateToStorage]);
 
-  // Save on page beforeunload / hide
+  // Setup live sync with native Android widget and handle lifecycle events
   useEffect(() => {
+    // Window global hook for Android MainActivity to notify webview
+    (window as unknown as { onNativeStateSync?: () => void }).onNativeStateSync = () => {
+      syncFromNative(true);
+    };
+
+    const handleFocus = () => {
+      syncFromNative(true);
+    };
+
     const handleBeforeUnload = () => {
       saveStateToStorage(tracker);
     };
+
     const handleVisibilityChange = () => {
       setCurrentTime(Date.now());
-      if (document.visibilityState === 'hidden') {
+      if (document.visibilityState === 'visible') {
+        syncFromNative(true);
+      } else if (document.visibilityState === 'hidden') {
         saveStateToStorage(tracker);
       }
     };
 
+    window.addEventListener('focus', handleFocus);
     window.addEventListener('beforeunload', handleBeforeUnload);
     window.addEventListener('pagehide', handleBeforeUnload);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
+    // Periodic sync interval (every 1s) to ensure real-time synchronization with widget
+    const periodicSync = setInterval(() => {
+      syncFromNative();
+    }, 1000);
+
     return () => {
+      delete (window as unknown as { onNativeStateSync?: () => void }).onNativeStateSync;
+      window.removeEventListener('focus', handleFocus);
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('pagehide', handleBeforeUnload);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearInterval(periodicSync);
     };
-  }, [tracker, saveStateToStorage]);
+  }, [syncFromNative, tracker, saveStateToStorage]);
+
+  // Check day rollover
+  useEffect(() => {
+    const checkDay = () => {
+      const todayKey = formatDateKey(Date.now());
+      const lastKey = formatDateKey(tracker.lastUpdatedTimestamp || Date.now());
+      if (todayKey !== lastKey && tracker.status === 'IDLE') {
+        setTracker(prev => ({
+          ...prev,
+          workElapsedMs: 0,
+          breakElapsedMs: 0,
+          lastUpdatedTimestamp: Date.now(),
+        }));
+      }
+    };
+    checkDay();
+    const interval = setInterval(checkDay, 60000);
+    return () => clearInterval(interval);
+  }, [tracker.lastUpdatedTimestamp, tracker.status]);
 
   // Background Web Worker and timer loop
   useEffect(() => {
@@ -407,8 +527,11 @@ export default function App() {
 
   // Compute daily summaries dynamically
   const daySummaries = useMemo(() => {
-    return aggregateDaySummaries(tracker.history, currentActiveInterval);
-  }, [tracker.history, currentActiveInterval]);
+    return aggregateDaySummaries(tracker.history, currentActiveInterval, {
+      workMs: currentWorkMs,
+      breakMs: currentBreakMs
+    });
+  }, [tracker.history, currentActiveInterval, currentWorkMs, currentBreakMs]);
 
   // Time calculations in minutes
   const workFormatted = formatMinutes(currentWorkMs);

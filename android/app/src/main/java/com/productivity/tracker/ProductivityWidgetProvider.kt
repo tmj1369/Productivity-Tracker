@@ -53,7 +53,9 @@ class ProductivityWidgetProvider : AppWidgetProvider() {
             ACTION_START_WORK -> {
                 if (currentMode != "WORK") {
                     if (currentMode == "BREAK") {
-                        breakMs += (now - lastTimestamp).coerceAtLeast(0L)
+                        val delta = (now - lastTimestamp).coerceAtLeast(0L)
+                        breakMs += delta
+                        appendCompletedSession(prefs, "BREAK", lastTimestamp, now, delta)
                     }
                     currentMode = "WORK"
                     prefs.edit()
@@ -61,13 +63,17 @@ class ProductivityWidgetProvider : AppWidgetProvider() {
                         .putLong(KEY_WORK_MS, workMs)
                         .putLong(KEY_BREAK_MS, breakMs)
                         .putLong(KEY_LAST_TIMESTAMP, now)
+                        .putLong(KEY_UPDATED_AT, now)
+                        .putString(KEY_DATE, getTodayDateKey())
                         .apply()
                 }
             }
             ACTION_START_BREAK -> {
                 if (currentMode != "BREAK") {
                     if (currentMode == "WORK") {
-                        workMs += (now - lastTimestamp).coerceAtLeast(0L)
+                        val delta = (now - lastTimestamp).coerceAtLeast(0L)
+                        workMs += delta
+                        appendCompletedSession(prefs, "WORK", lastTimestamp, now, delta)
                     }
                     currentMode = "BREAK"
                     prefs.edit()
@@ -75,14 +81,20 @@ class ProductivityWidgetProvider : AppWidgetProvider() {
                         .putLong(KEY_WORK_MS, workMs)
                         .putLong(KEY_BREAK_MS, breakMs)
                         .putLong(KEY_LAST_TIMESTAMP, now)
+                        .putLong(KEY_UPDATED_AT, now)
+                        .putString(KEY_DATE, getTodayDateKey())
                         .apply()
                 }
             }
             ACTION_STOP -> {
                 if (currentMode == "WORK") {
-                    workMs += (now - lastTimestamp).coerceAtLeast(0L)
+                    val delta = (now - lastTimestamp).coerceAtLeast(0L)
+                    workMs += delta
+                    appendCompletedSession(prefs, "WORK", lastTimestamp, now, delta)
                 } else if (currentMode == "BREAK") {
-                    breakMs += (now - lastTimestamp).coerceAtLeast(0L)
+                    val delta = (now - lastTimestamp).coerceAtLeast(0L)
+                    breakMs += delta
+                    appendCompletedSession(prefs, "BREAK", lastTimestamp, now, delta)
                 }
                 currentMode = "IDLE"
                 prefs.edit()
@@ -90,6 +102,7 @@ class ProductivityWidgetProvider : AppWidgetProvider() {
                     .putLong(KEY_WORK_MS, workMs)
                     .putLong(KEY_BREAK_MS, breakMs)
                     .putLong(KEY_LAST_TIMESTAMP, now)
+                    .putLong(KEY_UPDATED_AT, now)
                     .apply()
             }
             ACTION_RESET -> {
@@ -99,44 +112,14 @@ class ProductivityWidgetProvider : AppWidgetProvider() {
                     .putLong(KEY_WORK_MS, 0L)
                     .putLong(KEY_BREAK_MS, 0L)
                     .putLong(KEY_LAST_TIMESTAMP, now)
+                    .putLong(KEY_UPDATED_AT, now)
+                    .putString(KEY_SESSIONS_JSON, "[]")
+                    .putString(KEY_DATE, getTodayDateKey())
                     .apply()
             }
         }
 
-        // Trigger widget update for all active widgets
-        val appWidgetManager = AppWidgetManager.getInstance(context)
-        val componentName = ComponentName(context, ProductivityWidgetProvider::class.java)
-        val appWidgetIds = appWidgetManager.getAppWidgetIds(componentName)
-        for (id in appWidgetIds) {
-            updateAppWidget(context, appWidgetManager, id)
-        }
-
-        // Schedule next update based on active mode and whether 1 minute has elapsed
-        val latestMode = prefs.getString(KEY_MODE, "IDLE") ?: "IDLE"
-        val latestWork = prefs.getLong(KEY_WORK_MS, 0L)
-        val latestBreak = prefs.getLong(KEY_BREAK_MS, 0L)
-        val latestTs = prefs.getLong(KEY_LAST_TIMESTAMP, now)
-
-        var activeElapsed = 0L
-        if (latestMode == "WORK") {
-            activeElapsed = latestWork + (System.currentTimeMillis() - latestTs).coerceAtLeast(0L)
-        } else if (latestMode == "BREAK") {
-            activeElapsed = latestBreak + (System.currentTimeMillis() - latestTs).coerceAtLeast(0L)
-        }
-
-        if (latestMode == "WORK" || latestMode == "BREAK") {
-            val delayMs = if (activeElapsed < ONE_MINUTE_MS) {
-                // In first minute: schedule alarm at the exact 1-minute mark to stop showing seconds
-                (ONE_MINUTE_MS - activeElapsed).coerceAtLeast(1000L)
-            } else {
-                // After 1 minute: schedule next tick on the minute boundary (e.g. 1m -> 2m)
-                val msIntoMinute = activeElapsed % ONE_MINUTE_MS
-                (ONE_MINUTE_MS - msIntoMinute).coerceAtLeast(1000L)
-            }
-            scheduleNextUpdate(context, delayMs)
-        } else {
-            scheduleNextUpdate(context, 0L)
-        }
+        notifyWidgetsAndSchedule(context)
     }
 
     override fun onDisabled(context: Context) {
@@ -150,6 +133,9 @@ class ProductivityWidgetProvider : AppWidgetProvider() {
         const val KEY_WORK_MS = "work_accumulated_ms"
         const val KEY_BREAK_MS = "break_accumulated_ms"
         const val KEY_LAST_TIMESTAMP = "last_start_timestamp"
+        const val KEY_UPDATED_AT = "updated_at"
+        const val KEY_SESSIONS_JSON = "completed_sessions_json"
+        const val KEY_DATE = "tracker_date"
 
         const val ACTION_START_WORK = "com.productivity.tracker.ACTION_START_WORK"
         const val ACTION_START_BREAK = "com.productivity.tracker.ACTION_START_BREAK"
@@ -158,6 +144,64 @@ class ProductivityWidgetProvider : AppWidgetProvider() {
         const val ACTION_TICK = "com.productivity.tracker.ACTION_TICK"
 
         const val ONE_MINUTE_MS = 60_000L
+
+        fun appendCompletedSession(
+            prefs: android.content.SharedPreferences,
+            type: String,
+            startTime: Long,
+            endTime: Long,
+            durationMs: Long
+        ) {
+            if (durationMs < 1000L) return
+            val existing = prefs.getString(KEY_SESSIONS_JSON, "[]") ?: "[]"
+            val newSession = "{\"id\":\"${type.lowercase()}_$startTime\",\"type\":\"$type\",\"startTime\":$startTime,\"endTime\":$endTime,\"durationMs\":$durationMs}"
+            val updated = if (existing.trim() == "[]" || existing.trim().isEmpty()) {
+                "[$newSession]"
+            } else {
+                val trimmed = existing.trim().removeSuffix("]")
+                "$trimmed,$newSession]"
+            }
+            prefs.edit().putString(KEY_SESSIONS_JSON, updated).apply()
+        }
+
+        fun getTodayDateKey(): String {
+            val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+            return sdf.format(java.util.Date())
+        }
+
+        fun notifyWidgetsAndSchedule(context: Context) {
+            val appWidgetManager = AppWidgetManager.getInstance(context)
+            val componentName = ComponentName(context, ProductivityWidgetProvider::class.java)
+            val appWidgetIds = appWidgetManager.getAppWidgetIds(componentName)
+            for (id in appWidgetIds) {
+                updateAppWidget(context, appWidgetManager, id)
+            }
+
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val latestMode = prefs.getString(KEY_MODE, "IDLE") ?: "IDLE"
+            val latestWork = prefs.getLong(KEY_WORK_MS, 0L)
+            val latestBreak = prefs.getLong(KEY_BREAK_MS, 0L)
+            val latestTs = prefs.getLong(KEY_LAST_TIMESTAMP, System.currentTimeMillis())
+
+            var activeElapsed = 0L
+            if (latestMode == "WORK") {
+                activeElapsed = latestWork + (System.currentTimeMillis() - latestTs).coerceAtLeast(0L)
+            } else if (latestMode == "BREAK") {
+                activeElapsed = latestBreak + (System.currentTimeMillis() - latestTs).coerceAtLeast(0L)
+            }
+
+            if (latestMode == "WORK" || latestMode == "BREAK") {
+                val delayMs = if (activeElapsed < ONE_MINUTE_MS) {
+                    (ONE_MINUTE_MS - activeElapsed).coerceAtLeast(1000L)
+                } else {
+                    val msIntoMinute = activeElapsed % ONE_MINUTE_MS
+                    (ONE_MINUTE_MS - msIntoMinute).coerceAtLeast(1000L)
+                }
+                scheduleNextUpdate(context, delayMs)
+            } else {
+                scheduleNextUpdate(context, 0L)
+            }
+        }
 
         fun updateAppWidget(
             context: Context,
@@ -183,8 +227,25 @@ class ProductivityWidgetProvider : AppWidgetProvider() {
                     currentBreakMs += (now - lastTimestamp).coerceAtLeast(0L)
                 }
 
+                val todayDate = getTodayDateKey()
+                val savedDate = prefs.getString(KEY_DATE, todayDate) ?: todayDate
+                if (savedDate != todayDate) {
+                    if (currentMode == "IDLE") {
+                        prefs.edit()
+                            .putLong(KEY_WORK_MS, 0L)
+                            .putLong(KEY_BREAK_MS, 0L)
+                            .putString(KEY_DATE, todayDate)
+                            .putLong(KEY_UPDATED_AT, now)
+                            .apply()
+                        currentWorkMs = 0L
+                        currentBreakMs = 0L
+                    } else {
+                        prefs.edit().putString(KEY_DATE, todayDate).apply()
+                    }
+                }
+
                 val totalMs = currentWorkMs + currentBreakMs
-                val workPct = if (totalMs > 0) ((currentWorkMs.toDouble() / totalMs) * 100).toInt() else 0
+                val workPct = if (totalMs > 0) Math.round((currentWorkMs.toDouble() / totalMs) * 100).toInt() else 0
                 val breakPct = if (totalMs > 0) 100 - workPct else 0
 
                 val options = appWidgetManager.getAppWidgetOptions(appWidgetId)
