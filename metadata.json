@@ -1,0 +1,6 @@
+{
+  "name": "Productivity Tracker",
+  "description": "Minimalist mobile productivity tracker widget with work, break, and stop timers with background persistence.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
