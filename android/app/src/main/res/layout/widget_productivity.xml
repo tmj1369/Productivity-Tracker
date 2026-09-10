@@ -69,6 +69,16 @@
                 android:orientation="horizontal"
                 android:gravity="bottom">
 
+                <Chronometer
+                    android:id="@+id/widget_work_chrono"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textColor="@color/text_primary"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
+
                 <TextView
                     android:id="@+id/widget_work_time"
                     android:layout_width="0dp"
@@ -115,6 +125,16 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="bottom">
+
+                <Chronometer
+                    android:id="@+id/widget_break_chrono"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textColor="@color/text_primary"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
 
                 <TextView
                     android:id="@+id/widget_break_time"

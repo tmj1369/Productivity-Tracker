@@ -36,23 +36,47 @@ function formatMinutes(totalMs: number): string {
 export default function App() {
   const [tracker, setTracker] = useState<TrackerState>(() => {
     // Check if Android Native bridge is available
-    if (typeof window !== 'undefined' && (window as unknown as { AndroidNative?: { getMode: () => string; getWorkMs: () => number; getBreakMs: () => number; getLastTimestamp: () => number } }).AndroidNative?.getMode) {
+    if (typeof window !== 'undefined') {
       try {
-        const bridge = (window as unknown as { AndroidNative: { getMode: () => string; getWorkMs: () => number; getBreakMs: () => number; getLastTimestamp: () => number } }).AndroidNative;
-        const mode = bridge.getMode();
-        const workMs = Number(bridge.getWorkMs()) || 0;
-        const breakMs = Number(bridge.getBreakMs()) || 0;
-        const lastTs = Number(bridge.getLastTimestamp()) || null;
-        if (mode === 'WORK' || mode === 'BREAK' || workMs > 0 || breakMs > 0) {
-          return {
-            status: mode === 'WORK' ? 'WORK' : mode === 'BREAK' ? 'BREAK' : 'IDLE',
-            workElapsedMs: workMs,
-            breakElapsedMs: breakMs,
-            activeStartTimestamp: (mode === 'WORK' || mode === 'BREAK') ? (lastTs || Date.now()) : null,
-            lastUpdatedTimestamp: Date.now(),
-            soundEnabled: false,
-            history: []
+        const bridge = (window as unknown as {
+          AndroidNative?: {
+            getStateJson?: () => string;
+            getMode?: () => string;
+            getWorkMs?: () => number;
+            getBreakMs?: () => number;
+            getLastTimestamp?: () => number;
           };
+        }).AndroidNative;
+
+        if (bridge?.getStateJson) {
+          const parsed = JSON.parse(bridge.getStateJson());
+          if (parsed.mode === 'WORK' || parsed.mode === 'BREAK' || Number(parsed.workMs) > 0 || Number(parsed.breakMs) > 0) {
+            return {
+              status: parsed.mode === 'WORK' ? 'WORK' : parsed.mode === 'BREAK' ? 'BREAK' : 'IDLE',
+              workElapsedMs: Number(parsed.workMs) || 0,
+              breakElapsedMs: Number(parsed.breakMs) || 0,
+              activeStartTimestamp: (parsed.mode === 'WORK' || parsed.mode === 'BREAK') ? (Number(parsed.lastTimestamp) || Date.now()) : null,
+              lastUpdatedTimestamp: Date.now(),
+              soundEnabled: false,
+              history: []
+            };
+          }
+        } else if (bridge?.getMode) {
+          const mode = bridge.getMode();
+          const workMs = Number(bridge.getWorkMs()) || 0;
+          const breakMs = Number(bridge.getBreakMs()) || 0;
+          const lastTs = Number(bridge.getLastTimestamp()) || null;
+          if (mode === 'WORK' || mode === 'BREAK' || workMs > 0 || breakMs > 0) {
+            return {
+              status: mode === 'WORK' ? 'WORK' : mode === 'BREAK' ? 'BREAK' : 'IDLE',
+              workElapsedMs: workMs,
+              breakElapsedMs: breakMs,
+              activeStartTimestamp: (mode === 'WORK' || mode === 'BREAK') ? (lastTs || Date.now()) : null,
+              lastUpdatedTimestamp: Date.now(),
+              soundEnabled: false,
+              history: []
+            };
+          }
         }
       } catch (e) {
         console.warn('Native bridge load error:', e);
@@ -123,8 +147,23 @@ export default function App() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
       if (typeof window !== 'undefined') {
-        const nativeBridge = (window as unknown as { AndroidNative?: { syncState: (mode: string, work: number, brk: number, ts: number) => void } }).AndroidNative;
-        if (nativeBridge?.syncState) {
+        const nativeBridge = (window as unknown as {
+          AndroidNative?: {
+            syncStateJson?: (json: string) => void;
+            syncState?: (mode: string, work: number, brk: number, ts: number) => void;
+          };
+        }).AndroidNative;
+
+        if (nativeBridge?.syncStateJson) {
+          nativeBridge.syncStateJson(
+            JSON.stringify({
+              mode: stateToSave.status,
+              workMs: stateToSave.workElapsedMs,
+              breakMs: stateToSave.breakElapsedMs,
+              timestamp: stateToSave.activeStartTimestamp || Date.now()
+            })
+          );
+        } else if (nativeBridge?.syncState) {
           nativeBridge.syncState(
             stateToSave.status,
             stateToSave.workElapsedMs,

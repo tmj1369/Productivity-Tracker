@@ -1,5 +1,6 @@
 package com.productivity.tracker
 
+import android.app.AlarmManager
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
@@ -7,7 +8,9 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.os.Build
 import android.os.SystemClock
+import android.view.View
 import android.widget.RemoteViews
 
 class ProductivityWidgetProvider : AppWidgetProvider() {
@@ -36,9 +39,7 @@ class ProductivityWidgetProvider : AppWidgetProvider() {
 
         when (action) {
             ACTION_START_WORK -> {
-                // If previously working, do nothing
                 if (currentMode != "WORK") {
-                    // If on break, accumulate break time
                     if (currentMode == "BREAK") {
                         breakMs += (now - lastTimestamp).coerceAtLeast(0L)
                     }
@@ -49,11 +50,12 @@ class ProductivityWidgetProvider : AppWidgetProvider() {
                         .putLong(KEY_BREAK_MS, breakMs)
                         .putLong(KEY_LAST_TIMESTAMP, now)
                         .apply()
+
+                    schedulePeriodicTick(context, true)
                 }
             }
             ACTION_START_BREAK -> {
                 if (currentMode != "BREAK") {
-                    // If working, accumulate work time
                     if (currentMode == "WORK") {
                         workMs += (now - lastTimestamp).coerceAtLeast(0L)
                     }
@@ -64,10 +66,11 @@ class ProductivityWidgetProvider : AppWidgetProvider() {
                         .putLong(KEY_BREAK_MS, breakMs)
                         .putLong(KEY_LAST_TIMESTAMP, now)
                         .apply()
+
+                    schedulePeriodicTick(context, true)
                 }
             }
             ACTION_STOP -> {
-                // Accumulate whichever was running and pause
                 if (currentMode == "WORK") {
                     workMs += (now - lastTimestamp).coerceAtLeast(0L)
                 } else if (currentMode == "BREAK") {
@@ -80,6 +83,8 @@ class ProductivityWidgetProvider : AppWidgetProvider() {
                     .putLong(KEY_BREAK_MS, breakMs)
                     .putLong(KEY_LAST_TIMESTAMP, now)
                     .apply()
+
+                schedulePeriodicTick(context, false)
             }
             ACTION_RESET -> {
                 currentMode = "IDLE"
@@ -89,6 +94,16 @@ class ProductivityWidgetProvider : AppWidgetProvider() {
                     .putLong(KEY_BREAK_MS, 0L)
                     .putLong(KEY_LAST_TIMESTAMP, now)
                     .apply()
+
+                schedulePeriodicTick(context, false)
+            }
+            ACTION_TICK -> {
+                // Periodic alarm tick to refresh percentages and ratio while session is active
+                if (currentMode == "WORK" || currentMode == "BREAK") {
+                    schedulePeriodicTick(context, true)
+                } else {
+                    schedulePeriodicTick(context, false)
+                }
             }
         }
 
@@ -99,6 +114,11 @@ class ProductivityWidgetProvider : AppWidgetProvider() {
         for (id in appWidgetIds) {
             updateAppWidget(context, appWidgetManager, id)
         }
+    }
+
+    override fun onDisabled(context: Context) {
+        super.onDisabled(context)
+        schedulePeriodicTick(context, false)
     }
 
     companion object {
@@ -112,6 +132,7 @@ class ProductivityWidgetProvider : AppWidgetProvider() {
         const val ACTION_START_BREAK = "com.productivity.tracker.ACTION_START_BREAK"
         const val ACTION_STOP = "com.productivity.tracker.ACTION_STOP"
         const val ACTION_RESET = "com.productivity.tracker.ACTION_RESET"
+        const val ACTION_TICK = "com.productivity.tracker.ACTION_TICK"
 
         fun updateAppWidget(
             context: Context,
@@ -120,46 +141,84 @@ class ProductivityWidgetProvider : AppWidgetProvider() {
         ) {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             val currentMode = prefs.getString(KEY_MODE, "IDLE") ?: "IDLE"
-            var workMs = prefs.getLong(KEY_WORK_MS, 0L)
-            var breakMs = prefs.getLong(KEY_BREAK_MS, 0L)
+            val workMs = prefs.getLong(KEY_WORK_MS, 0L)
+            val breakMs = prefs.getLong(KEY_BREAK_MS, 0L)
             val lastTimestamp = prefs.getLong(KEY_LAST_TIMESTAMP, System.currentTimeMillis())
 
             val now = System.currentTimeMillis()
+            val elapsedRealtime = SystemClock.elapsedRealtime()
+
+            var currentWorkMs = workMs
+            var currentBreakMs = breakMs
+
             if (currentMode == "WORK") {
-                workMs += (now - lastTimestamp).coerceAtLeast(0L)
+                currentWorkMs += (now - lastTimestamp).coerceAtLeast(0L)
             } else if (currentMode == "BREAK") {
-                breakMs += (now - lastTimestamp).coerceAtLeast(0L)
+                currentBreakMs += (now - lastTimestamp).coerceAtLeast(0L)
             }
 
-            val totalMs = workMs + breakMs
-            val workPct = if (totalMs > 0) ((workMs.toDouble() / totalMs) * 100).toInt() else 0
+            val totalMs = currentWorkMs + currentBreakMs
+            val workPct = if (totalMs > 0) ((currentWorkMs.toDouble() / totalMs) * 100).toInt() else 0
             val breakPct = if (totalMs > 0) 100 - workPct else 0
 
             val views = RemoteViews(context.packageName, R.layout.widget_productivity)
 
-            // Times
-            views.setTextViewText(R.id.widget_work_time, formatDuration(workMs))
-            views.setTextViewText(R.id.widget_break_time, formatDuration(breakMs))
-            views.setTextViewText(R.id.widget_work_percent, "$workPct%")
-            views.setTextViewText(R.id.widget_break_percent, "$breakPct%")
-            views.setTextViewText(R.id.widget_total_time, "Total " + formatDuration(totalMs))
-            views.setTextViewText(R.id.widget_balance_label, "Work $workPct% • Break $breakPct%")
-
-            // Status label & color
+            // Real-time ticking Chronometers & static text depending on active state
             when (currentMode) {
                 "WORK" -> {
+                    // Chronometer base = SystemClock.elapsedRealtime() - currentWorkMs
+                    val chronoBase = elapsedRealtime - currentWorkMs
+                    views.setViewVisibility(R.id.widget_work_chrono, View.VISIBLE)
+                    views.setViewVisibility(R.id.widget_work_time, View.GONE)
+                    views.setChronometer(R.id.widget_work_chrono, chronoBase, null, true)
+
+                    // Break is paused
+                    views.setViewVisibility(R.id.widget_break_chrono, View.GONE)
+                    views.setViewVisibility(R.id.widget_break_time, View.VISIBLE)
+                    views.setChronometer(R.id.widget_break_chrono, 0L, null, false)
+                    views.setTextViewText(R.id.widget_break_time, formatDuration(breakMs))
+
                     views.setTextViewText(R.id.widget_status, "● WORKING")
                     views.setTextColor(R.id.widget_status, Color.parseColor("#9AB87A"))
                 }
                 "BREAK" -> {
+                    // Work is paused
+                    views.setViewVisibility(R.id.widget_work_chrono, View.GONE)
+                    views.setViewVisibility(R.id.widget_work_time, View.VISIBLE)
+                    views.setChronometer(R.id.widget_work_chrono, 0L, null, false)
+                    views.setTextViewText(R.id.widget_work_time, formatDuration(workMs))
+
+                    // Break is live ticking
+                    val chronoBase = elapsedRealtime - currentBreakMs
+                    views.setViewVisibility(R.id.widget_break_chrono, View.VISIBLE)
+                    views.setViewVisibility(R.id.widget_break_time, View.GONE)
+                    views.setChronometer(R.id.widget_break_chrono, chronoBase, null, true)
+
                     views.setTextViewText(R.id.widget_status, "● ON BREAK")
                     views.setTextColor(R.id.widget_status, Color.parseColor("#E2B068"))
                 }
                 else -> {
+                    // IDLE / STOPPED: Both Chronometers hidden, static text shown
+                    views.setViewVisibility(R.id.widget_work_chrono, View.GONE)
+                    views.setViewVisibility(R.id.widget_work_time, View.VISIBLE)
+                    views.setChronometer(R.id.widget_work_chrono, 0L, null, false)
+                    views.setTextViewText(R.id.widget_work_time, formatDuration(workMs))
+
+                    views.setViewVisibility(R.id.widget_break_chrono, View.GONE)
+                    views.setViewVisibility(R.id.widget_break_time, View.VISIBLE)
+                    views.setChronometer(R.id.widget_break_chrono, 0L, null, false)
+                    views.setTextViewText(R.id.widget_break_time, formatDuration(breakMs))
+
                     views.setTextViewText(R.id.widget_status, "IDLE")
                     views.setTextColor(R.id.widget_status, Color.parseColor("#717E94"))
                 }
             }
+
+            // Percentages & summary
+            views.setTextViewText(R.id.widget_work_percent, "$workPct%")
+            views.setTextViewText(R.id.widget_break_percent, "$breakPct%")
+            views.setTextViewText(R.id.widget_total_time, "Total " + formatDuration(totalMs))
+            views.setTextViewText(R.id.widget_balance_label, "Work $workPct% • Break $breakPct%")
 
             // Click Intents
             views.setOnClickPendingIntent(
@@ -190,6 +249,30 @@ class ProductivityWidgetProvider : AppWidgetProvider() {
             appWidgetManager.updateAppWidget(appWidgetId, views)
         }
 
+        private fun schedulePeriodicTick(context: Context, enable: Boolean) {
+            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
+            val intent = Intent(context, ProductivityWidgetProvider::class.java).apply {
+                action = ACTION_TICK
+            }
+            val pendingIntent = PendingIntent.getBroadcast(
+                context,
+                999,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            if (enable) {
+                val triggerTime = SystemClock.elapsedRealtime() + 30_000L
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    alarmManager.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerTime, pendingIntent)
+                } else {
+                    alarmManager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerTime, pendingIntent)
+                }
+            } else {
+                alarmManager.cancel(pendingIntent)
+            }
+        }
+
         private fun getBroadcastPendingIntent(context: Context, action: String): PendingIntent {
             val intent = Intent(context, ProductivityWidgetProvider::class.java).apply {
                 this.action = action
@@ -203,17 +286,15 @@ class ProductivityWidgetProvider : AppWidgetProvider() {
         }
 
         private fun formatDuration(millis: Long): String {
-            val totalSeconds = millis / 1000
+            val totalSeconds = (millis / 1000).coerceAtLeast(0L)
             val hours = totalSeconds / 3600
             val minutes = (totalSeconds % 3600) / 60
             val seconds = totalSeconds % 60
 
             return if (hours > 0) {
-                String.format("%dh %02dm", hours, minutes)
-            } else if (minutes > 0) {
-                String.format("%dm %02ds", minutes, seconds)
+                String.format("%d:%02d:%02d", hours, minutes, seconds)
             } else {
-                String.format("%02ds", seconds)
+                String.format("%02d:%02d", minutes, seconds)
             }
         }
     }
