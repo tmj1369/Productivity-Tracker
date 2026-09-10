@@ -90,9 +90,9 @@ export const DailyStatsView: React.FC<DailyStatsViewProps> = ({
   }, [selectedWeek]);
 
   return (
-    <div className="w-full max-w-md bg-[#0E121B] rounded-2xl p-4 sm:p-5 shadow-[0_16px_40px_-8px_rgba(0,0,0,0.6),0_2px_8px_-2px_rgba(0,0,0,0.4)] border border-[#1A2232] text-[#F1F4FA] transition-all">
+    <div className="w-full max-w-md bg-[#0E121B] rounded-2xl p-3 sm:p-5 shadow-[0_16px_40px_-8px_rgba(0,0,0,0.6),0_2px_8px_-2px_rgba(0,0,0,0.4)] border border-[#1A2232] text-[#F1F4FA] transition-all">
       {/* Top Header: Timer Back Button & Day / Week Segmented Switcher */}
-      <header className="flex items-center justify-between pb-3.5 border-b border-[#1A2232] mb-3.5">
+      <header className="flex items-center justify-between pb-3 border-b border-[#1A2232] mb-3">
         <button
           id="btn-back-to-timer"
           type="button"
@@ -144,12 +144,12 @@ export const DailyStatsView: React.FC<DailyStatsViewProps> = ({
       {/* 1. SIMPLIFIED DAILY ANALYTICS TAB                                         */}
       {/* ========================================================================= */}
       {activeTab === 'DAY' && (
-        <main id="daily-analytics-content" className="space-y-3 animate-fade-in">
+        <main id="daily-analytics-content" className="space-y-2.5 animate-fade-in">
           {/* Streamlined Day Selector */}
           <section 
             id="daily-date-navigator"
             aria-label="Day Selector"
-            className="flex items-center justify-between bg-[#121622] rounded-xl px-2 py-1.5 border border-[#1C2436]"
+            className="flex items-center justify-between bg-[#121622] rounded-xl px-2 py-1 border border-[#1C2436]"
           >
             <button
               id="btn-prev-day"
@@ -187,7 +187,7 @@ export const DailyStatsView: React.FC<DailyStatsViewProps> = ({
           <section
             id="card-daily-focus"
             aria-label="Productivity and Time Balance"
-            className="bg-[#121622] border border-[#1C2436] rounded-xl p-4"
+            className="bg-[#121622] border border-[#1C2436] rounded-xl p-3"
           >
             <div className="flex items-baseline justify-between mb-2">
               <div>
@@ -248,38 +248,38 @@ export const DailyStatsView: React.FC<DailyStatsViewProps> = ({
             </div>
 
             {/* Clear Work, Break & Total Metrics */}
-            <div className="grid grid-cols-3 gap-2 pt-2.5 border-t border-[#1C2436]/60">
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <div className="w-7 h-7 rounded-lg bg-[#9AB87A]/15 text-[#9AB87A] flex items-center justify-center shrink-0">
-                  <Briefcase className="w-3.5 h-3.5" />
+            <div className="grid grid-cols-3 gap-1.5 pt-2.5 border-t border-[#1C2436]/60">
+              <div className="flex items-center gap-1">
+                <div className="w-6 h-6 rounded-lg bg-[#9AB87A]/15 text-[#9AB87A] flex items-center justify-center shrink-0">
+                  <Briefcase className="w-3 h-3" />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-[10px] text-[#717E94] font-medium truncate">Work Time</div>
-                  <div className="text-xs sm:text-sm font-mono font-semibold text-[#9AB87A] truncate">
+                  <div className="text-[9px] text-[#717E94] font-medium truncate">Work</div>
+                  <div className="text-xs font-mono font-semibold text-[#9AB87A] truncate">
                     {formatDurationDetailed(selectedDay.totalWorkMs)}
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <div className="w-7 h-7 rounded-lg bg-[#E2B068]/15 text-[#E2B068] flex items-center justify-center shrink-0">
-                  <Coffee className="w-3.5 h-3.5" />
+              <div className="flex items-center gap-1">
+                <div className="w-6 h-6 rounded-lg bg-[#E2B068]/15 text-[#E2B068] flex items-center justify-center shrink-0">
+                  <Coffee className="w-3 h-3" />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-[10px] text-[#717E94] font-medium truncate">Break Time</div>
-                  <div className="text-xs sm:text-sm font-mono font-semibold text-[#E2B068] truncate">
+                  <div className="text-[9px] text-[#717E94] font-medium truncate">Break</div>
+                  <div className="text-xs font-mono font-semibold text-[#E2B068] truncate">
                     {formatDurationDetailed(selectedDay.totalBreakMs)}
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <div className="w-7 h-7 rounded-lg bg-[#717E94]/15 text-[#F1F4FA] flex items-center justify-center shrink-0">
-                  <Clock className="w-3.5 h-3.5" />
+              <div className="flex items-center gap-1">
+                <div className="w-6 h-6 rounded-lg bg-[#717E94]/15 text-[#F1F4FA] flex items-center justify-center shrink-0">
+                  <Clock className="w-3 h-3" />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-[10px] text-[#717E94] font-medium truncate">Total Time</div>
-                  <div className="text-xs sm:text-sm font-mono font-semibold text-[#F1F4FA] truncate">
+                  <div className="text-[9px] text-[#717E94] font-medium truncate">Total</div>
+                  <div className="text-xs font-mono font-semibold text-[#F1F4FA] truncate">
                     {formatDurationDetailed(selectedDay.totalMs)}
                   </div>
                 </div>
@@ -651,7 +651,7 @@ export const DailyStatsView: React.FC<DailyStatsViewProps> = ({
               </span>
             </div>
 
-            <div className="space-y-1.5 max-h-[220px] overflow-y-auto pr-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            <div className="space-y-1.5 max-h-[180px] overflow-y-auto pr-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
               {selectedWeek.days.map((day) => (
                 <button
                   key={day.dateKey}
